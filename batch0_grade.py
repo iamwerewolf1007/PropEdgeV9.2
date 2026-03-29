@@ -224,6 +224,12 @@ def fetch_boxscores(date_str):
             print(f"    ✗ game {g}: {e}")
 
     print(f"  Fetched {len(rows)} played rows, {len(players_in_box)} players in box")
+    if len(rows) == 0:
+        msg = (f"WARNING: fetch_boxscores returned 0 played rows for {date_str}. "
+               f"nba_api may have failed or no games were played. "
+               f"CSV will NOT be updated — batch_predict will use stale rolling stats.")
+        print(f"  ⚠ {msg}")
+        log_event('B0', 'FETCH_EMPTY_WARNING', detail=msg)
     log_event('B0','BOXSCORES_FETCHED',detail=f'{len(rows)} rows for {date_str}')
     return rows, players_in_box
 
@@ -348,6 +354,107 @@ def crosscheck_rolling_stats(plays_for_date, date_str):
         print(f"  ⚠ Cross-check failed: {e}")
 
     return integrity
+
+
+# ─── POST-GAME ROLLING UPDATE ─────────────────────────────
+ROLLING_DISPLAY_FIELDS = [
+    ('l30', 'L30'), ('l20', 'L20'), ('l10', 'L10'), ('l5', 'L5'), ('l3', 'L3'),
+    ('hr30', 'hr30'), ('hr10', 'hr10'),
+    ('fgL30', 'fg30'), ('fgL10', 'fg10'),
+    ('fga30', 'fga30'), ('fga10', 'fga10'),
+    ('minL30', 'm30'), ('minL10', 'm10'),
+    ('std10', 'std10'), ('trend', 'trend'),
+    ('fgTrend', 'fgTrend'), ('minTrend', 'minTrend'),
+]
+
+def update_postmatch_rolling(graded_date):
+    """
+    After append_gamelogs() has written yesterday's game rows to the CSV,
+    recompute rolling display fields for every play on graded_date in both
+    season_2025_26.json and today.json.
+
+    Uses cutoff = graded_date + 1 day so the actual game result IS included
+    in the rolling window (post-game form, not prediction-time snapshot).
+
+    Does NOT touch: result, actualPts, delta, postMatchReason, lossType,
+                    preMatchReason, predPts, predGap, line, dir, tier,
+                    flags, flagDetails, lineHistory (all immutable).
+    Skips DNP plays — no game played, nothing to include.
+    """
+    from datetime import datetime, timedelta
+    cutoff = (datetime.strptime(graded_date, '%Y-%m-%d') + timedelta(days=1)).strftime('%Y-%m-%d')
+
+    try:
+        combined = load_combined(FILE_GL_2425, FILE_GL_2526)
+        pidx     = build_player_index(combined)
+    except Exception as e:
+        print(f"  ⚠ update_postmatch_rolling: failed to load CSV — {e}")
+        log_event('B0', 'ROLLING_UPDATE_FAILED', detail=str(e))
+        return
+
+    refreshed = skipped_dnp = skipped_insuf = errors = 0
+
+    for fpath in [SEASON_2526, TODAY_JSON]:
+        if not fpath.exists():
+            continue
+        with open(fpath) as f:
+            plays = json.load(f)
+
+        changed = False
+        for p in plays:
+            if p.get('date') != graded_date:
+                continue
+            # DNP: no game played — rolling stays as prediction-time snapshot
+            if p.get('result') == 'DNP':
+                skipped_dnp += 1
+                continue
+
+            player = p.get('player', '')
+            line   = float(p.get('line', 0) or 0)
+
+            try:
+                prior = get_prior_games_played(pidx, player, cutoff)
+                if len(prior) < 5:
+                    skipped_insuf += 1
+                    continue
+
+                feats = extract_prediction_features(prior, line)
+                if feats is None:
+                    skipped_insuf += 1
+                    continue
+
+                # Update all rolling display fields
+                for json_key, feat_key in ROLLING_DISPLAY_FIELDS:
+                    val = feats.get(feat_key)
+                    if val is not None:
+                        p[json_key] = val
+
+                # volume derived from updated L30 and line
+                p['volume']        = round(feats['L30'] - line, 1)
+
+                # recent arrays (post-game: includes actual result)
+                p['recent20']      = feats['recent20']
+                p['recent10']      = feats['recent10']
+                p['recent']        = feats['recent20'][:5]
+                p['recent20homes'] = [bool(x) for x in feats['r20_homes']]
+                p['recentOver']    = sum(1 for r in feats['recent20'] if r > line)
+                p['recentUnder']   = sum(1 for r in feats['recent20'] if r <= line)
+
+                refreshed += 1
+                changed = True
+
+            except Exception as e:
+                errors += 1
+                log_event('B0', 'ROLLING_UPDATE_ROW_ERROR', detail=f"{player} {graded_date}: {e}")
+
+        if changed:
+            with open(fpath, 'w') as f:
+                json.dump(_clean(plays), f)
+
+    print(f"  ✓ Rolling update {graded_date}: {refreshed} refreshed, "
+          f"{skipped_dnp} DNP skipped, {skipped_insuf} insufficient history, {errors} errors")
+    log_event('B0', 'ROLLING_UPDATE_COMPLETE',
+              detail=f'date={graded_date} refreshed={refreshed} dnp={skipped_dnp} insuf={skipped_insuf}')
 
 
 # ─── GRADE PLAYS ─────────────────────────────────────────────
@@ -523,6 +630,11 @@ def main():
 
     # 3. Append game logs (played + DNP stubs)
     append_gamelogs(played_rows, dnp_names, yesterday)
+
+    # 3b. Post-game rolling update — recompute l3/l10/l30/recent20 etc.
+    #     for all plays on yesterday using cutoff=today (includes actual game result).
+    #     Fixes: season_2025_26.json and today.json both updated.
+    update_postmatch_rolling(yesterday)
 
     # 4. Cross-check rolling stats (now that new rows are in CSV)
     integrity_map = crosscheck_rolling_stats(plays_for_check, yesterday)

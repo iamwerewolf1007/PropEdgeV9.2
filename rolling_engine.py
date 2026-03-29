@@ -143,10 +143,12 @@ def extract_prediction_features(prior_played, line):
                 if 'IS_HOME' in p.columns else [0] * len(recent20_pts)
 
     # ── Hit rates ──
+    # hr10: last 10 played games; hr30: last 30 played games (real 30-game window)
+    recent30_pts = list(p.tail(30)['PTS'].fillna(0).astype(int).values)
     hr10 = round(sum(1 for r in recent10_pts if r > line) / len(recent10_pts) * 100) \
            if recent10_pts else 50
-    hr30 = round(sum(1 for r in recent20_pts if r > line) / len(recent20_pts) * 100) \
-           if recent20_pts else 50
+    hr30 = round(sum(1 for r in recent30_pts if r > line) / len(recent30_pts) * 100) \
+           if recent30_pts else 50
 
     vol   = round(L30 - line, 1)
     trend = round(L5 - L30, 1)

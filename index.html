@@ -179,9 +179,11 @@ const cfc = c => c >= .62 ? 'var(--gr)' : c >= .55 ? 'var(--yl)' : 'var(--tx3)';
 function allDates() { return [...new Set(P.map(p => p.date))].sort(); }
 function latestDate() { const d = allDates(); return d[d.length - 1] || ''; }
 function isVoid(p) {
+  // DNP is no longer voided from display — shown with badge, excluded from HR stats only
   const r = p.result;
-  return r === 'DNP' || r === 'PUSH' || r === 'NO_PLAY' || r === 'NO PLAY';
+  return r === 'PUSH' || r === 'NO_PLAY' || r === 'NO PLAY';
 }
+function isDNP(p) { return p.result === 'DNP'; }
 function isLean(p) {
   return p.dir === 'LEAN OVER' || p.dir === 'LEAN UNDER' || p.tierLabel === 'T3_LEAN';
 }
@@ -285,21 +287,40 @@ function computeSeasonStats() {
 // ─── SPARKLINE ───
 // recent array: index 0 = oldest, last = most recent
 // Chart: LEFT = oldest, RIGHT = most recent (natural timeline)
-function spark(d, ln, homes, w = 150, h = 30) {
+function spark(d, ln, homes, w = 160, h = 72) {
   if (!d || d.length < 2) return '';
-  const pad = 4, mn = Math.min(...d, ln) - 3, mx = Math.max(...d, ln) + 3, rn = mx - mn || 1;
-  const x = i => pad + (i / (d.length - 1)) * (w - pad * 2);
-  const y = v => pad + (1 - (v - mn) / rn) * (h - pad * 2);
-  return `<svg width="${w}" height="${h}" style="display:block">
-    <line x1="${pad}" y1="${y(ln)}" x2="${w - pad}" y2="${y(ln)}" stroke="#fbbf24" stroke-width="1.5" stroke-dasharray="4,3" opacity=".7"/>
-    <polyline points="${d.map((v, i) => x(i) + ',' + y(v)).join(' ')}" fill="none" stroke="#e2e8f0" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" opacity=".85"/>
-    ${d.map((v, i) => {
-      const isHome = homes && i < homes.length ? homes[i] : null;
-      const fill = v > ln ? '#22c55e' : '#ef4444';
-      const stroke = isHome === true ? '#38bdf8' : isHome === false ? '#94a3b8' : 'none';
-      return `<circle cx="${x(i)}" cy="${y(v)}" r="3" fill="${fill}" ${stroke !== 'none' ? 'stroke="' + stroke + '" stroke-width="1.5"' : ''}/>`;
-    }).join('')}
-  </svg>`;
+  // L20 window — take last 20 scores
+  const ds = d.slice(-20);
+  const hs = homes ? homes.slice(-20) : [];
+  const pad = 6, labH = 14;
+  const ch = h - labH;  // chart area height (leave bottom for score labels)
+  const mn = Math.min(...ds, ln) - 2, mx = Math.max(...ds, ln) + 2, rn = mx - mn || 1;
+  const x = i => pad + (i / Math.max(ds.length - 1, 1)) * (w - pad * 2);
+  const y = v => pad + (1 - (v - mn) / rn) * (ch - pad * 2);
+  const ly = y(ln);
+  const svgParts = [];
+  // Line zone fills
+  svgParts.push(`<rect x="${pad}" y="${pad}" width="${w-pad*2}" height="${Math.max(0,ly-pad)}" fill="rgba(34,197,94,.06)"/>`);
+  svgParts.push(`<rect x="${pad}" y="${ly}" width="${w-pad*2}" height="${Math.max(0,ch-ly)}" fill="rgba(239,68,68,.06)"/>`);
+  // Prop line
+  svgParts.push(`<line x1="${pad}" y1="${ly}" x2="${w-pad}" y2="${ly}" stroke="#6366f1" stroke-width="1.5" stroke-dasharray="4,3" opacity=".8"/>`);
+  svgParts.push(`<text x="${w-pad-1}" y="${ly-3}" font-size="7" fill="#6366f1" text-anchor="end" opacity=".9">${ln}</text>`);
+  // Connecting line
+  const pts = ds.map((v,i) => x(i)+','+y(v)).join(' ');
+  svgParts.push(`<polyline points="${pts}" fill="none" stroke="rgba(148,163,184,.4)" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round"/>`);
+  // Dots with glow + score labels below
+  ds.forEach((v, i) => {
+    const cx = x(i), cy = y(v);
+    const hit = v > ln;
+    const fill = hit ? '#22c55e' : '#ef4444';
+    const gid = 'g' + i + Math.random().toString(36).slice(2,5);
+    svgParts.push(`<defs><filter id="${gid}"><feGaussianBlur stdDeviation="2" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs>`);
+    svgParts.push(`<circle cx="${cx}" cy="${cy}" r="4" fill="${fill}" filter="url(#${gid})" opacity=".9"/>`);
+    svgParts.push(`<circle cx="${cx}" cy="${cy}" r="2.5" fill="${fill}"/>`);
+    // Score label
+    svgParts.push(`<text x="${cx}" y="${h-2}" font-size="7" fill="${fill}" text-anchor="middle" font-weight="700">${v}</text>`);
+  });
+  return `<svg width="${w}" height="${h}" style="display:block;overflow:visible">${svgParts.join('')}</svg>`;
 }
 
 // ─── MAIN RENDER ───
@@ -401,55 +422,81 @@ function renderDaily(DS, dates, curDate) {
     return `<div class="mon ${selMon === m ? 'on' : ''}" onclick="selMon='${m}';jumpToMonth('${m}');render()">${lbl}</div>`;
   }).join('')}</div>`;
 
-  // 7-day calendar
-  const calDs = DS.filter(d => d.date.startsWith(selMon)).slice(-7);
-  h += `<div class="dcal">`;
-  calDs.forEach(d => {
-    const dObj = new Date(d.date + 'T12:00:00');
-    const dow = dObj.toLocaleDateString('en-US', { weekday: 'short' }).toUpperCase().slice(0, 3);
-    const dom = dObj.getDate();
-    const isAct = d.date === curDate;
-    const hr = d.graded ? d.wins / d.graded : 0;
-    const wlC = d.graded ? (hr >= .55 ? 'var(--gr)' : hr >= .45 ? 'var(--yl)' : 'var(--rd)') : 'var(--tx4)';
-    const dIdx = dates.indexOf(d.date);
-    h += `<div class="dday ${isAct ? 'on' : ''}" onclick="if(${dIdx}>=0){di=${dIdx};selMon='${d.date.slice(0, 7)}';fMatch='all';render()}">
-      <div class="dow">${dow}</div><div class="dnum">${dom}</div>
-      <div class="dwl" style="color:${wlC}">${d.graded ? d.wins + 'W/' + (d.graded - d.wins) + 'L' : d.plays ? '<span style="color:var(--bl);font-size:6px">' + d.plays + '▸</span>' : '—'}</div>
-    </div>`;
-  });
-  h += `</div>`;
+  // Date navigator — prev/next through ALL dates (no 7-day limit)
+  const diCur = (di >= 0 && di < dates.length) ? di : dates.length - 1;
+  const navObj = curDate ? new Date(curDate + 'T12:00:00') : null;
+  const navLbl = navObj ? navObj.toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'}).toUpperCase() : '—';
+  const navDS  = DS.find(d => d.date === curDate) || {};
+  const navHR  = navDS.graded ? (navDS.wins / navDS.graded * 100).toFixed(1) + '%' : '';
+  const navWL  = navDS.graded ? navDS.wins + 'W/' + (navDS.graded - navDS.wins) + 'L' : (navDS.plays ? navDS.plays + ' props' : '');
+  const navC   = navDS.graded ? (navDS.wins/navDS.graded >= .55 ? 'var(--gr)' : navDS.wins/navDS.graded >= .45 ? 'var(--yl)' : 'var(--rd)') : 'var(--bl)';
+  h += `<div style="display:flex;align-items:center;gap:6px;margin-bottom:10px;background:var(--bg1);border-radius:10px;padding:7px 10px;border:1px solid var(--bg2)">
+    <div style="font:700 12px var(--M);padding:4px 12px;border-radius:7px;border:1px solid var(--bg2);background:var(--bg);cursor:pointer;color:${di <= 0 ? 'var(--tx4)' : 'var(--tx)'};user-select:none;transition:.15s"
+      onclick="if(di>0){di--;selMon=dates[di].slice(0,7);fMatch='all';render()}">&#9664;</div>
+    <div style="flex:1;text-align:center">
+      <div style="font:700 11px var(--M);color:var(--tx)">${navLbl}</div>
+      <div style="font:400 9px var(--S);color:${navC};margin-top:1px">${navWL}${navHR ? ' &middot; ' + navHR + ' HR' : ''} &middot; ${diCur+1}/${dates.length}</div>
+    </div>
+    <div style="font:700 12px var(--M);padding:4px 12px;border-radius:7px;border:1px solid var(--bg2);background:var(--bg);cursor:pointer;color:${di >= dates.length-1 ? 'var(--tx4)' : 'var(--tx)'};user-select:none;transition:.15s"
+      onclick="if(di<dates.length-1){di++;selMon=dates[di].slice(0,7);fMatch='all';render()}">&#9654;</div>
+  </div>`;
 
   // Day plays
   const dayAll = P.filter(p => p.date === curDate);
-  const voids = dayAll.filter(p => isVoid(p));
-  const valid = dayAll.filter(p => !isVoid(p));
-  const graded = valid.filter(p => p.result === 'WIN' || p.result === 'LOSS');
-  const wins = graded.filter(p => p.result === 'WIN').length;
-  const t1 = valid.filter(p => p.tier === 1).length;
-  const t2 = valid.filter(p => p.tier === 2).length;
+  const voids  = dayAll.filter(p => isVoid(p));
+  const valid  = dayAll.filter(p => !isVoid(p));  // includes DNP
+  const graded = valid.filter(p => p.result === 'WIN' || p.result === 'LOSS');  // excludes DNP
+  const wins   = graded.filter(p => p.result === 'WIN').length;
+  const t1     = valid.filter(p => p.tier === 1 && !isDNP(p)).length;
+  const t2     = valid.filter(p => p.tier === 2 && !isDNP(p)).length;
   const gm = [...new Set(valid.map(p => p.match))];
   const isPreGame = graded.length === 0 && valid.length > 0;
 
-  // Summary boxes
-  const sbActive = 'box-shadow:0 0 0 1.5px var(--bl);';
-  h += `<div class="sum4">
-    <div class="sb" style="cursor:pointer;${fTier === 'all' && fDir === 'all' && fRes === 'all' ? sbActive : ''}" onclick="fTier='all';fDir='all';fRes='all';fMatch='all';render()">
-      <div class="sb-v">${valid.length}</div><div class="sb-l">Props${voids.length ? '<br><span style="color:var(--tx4);font-size:6px">+' + voids.length + ' DNP</span>' : ''}</div>
+  // Daily stats bar — tier boxes with hit rate, filter-reactive, DNP excluded
+  const allForDay = P.filter(p => p.date === curDate);
+  const gradedForDay = allForDay.filter(p => p.result === 'WIN' || p.result === 'LOSS');
+  const winsForDay  = gradedForDay.filter(p => p.result === 'WIN').length;
+  const dnpCount    = allForDay.filter(p => p.result === 'DNP').length;
+  function tierBox(label, tierLabel, plays, color, bgColor, isActive, onclick) {
+    const tg = plays.filter(p => p.result === 'WIN' || p.result === 'LOSS');
+    const tw = tg.filter(p => p.result === 'WIN').length;
+    const thr = tg.length ? Math.round(tw / tg.length * 100) + '%' : '';
+    const thrC = tg.length ? (tw/tg.length >= .6 ? 'var(--gr)' : tw/tg.length >= .5 ? 'var(--yl)' : 'var(--rd)') : color;
+    return `<div style="display:flex;flex-direction:column;align-items:center;padding:5px 8px;border-radius:8px;background:${isActive?bgColor:'var(--bg1)'};border:1px solid ${isActive?color+'66':'var(--bg2)'};cursor:pointer;min-width:48px;transition:.15s" onclick="${onclick}">
+      <div style="font:700 8px var(--M);color:${color};letter-spacing:.5px;text-transform:uppercase">${label}</div>
+      <div style="font:800 14px var(--M);color:${color}">${plays.length}</div>
+      ${thr ? `<div style="font:600 8px var(--M);color:${thrC}">${thr}</div>` : '<div style="font:400 7px var(--M);color:var(--tx4)">—</div>'}
+    </div>`;
+  }
+  const ultraPlays = allForDay.filter(p => p.tierLabel === 'T1_ULTRA');
+  const premPlays  = allForDay.filter(p => p.tierLabel === 'T1_PREMIUM');
+  const t1Plays    = allForDay.filter(p => p.tierLabel === 'T1');
+  const t2Plays    = allForDay.filter(p => p.tier === 2);
+  const overallHR  = gradedForDay.length ? Math.round(winsForDay / gradedForDay.length * 100) : null;
+  const overallC   = overallHR !== null ? (overallHR >= 55 ? 'var(--gr)' : overallHR < 50 ? 'var(--rd)' : 'var(--yl)') : 'var(--tx2)';
+  h += `<div style="display:flex;gap:5px;align-items:stretch;margin-bottom:8px;flex-wrap:wrap">
+    <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;padding:5px 10px;border-radius:8px;background:var(--bg1);border:1px solid var(--bg2);min-width:52px">
+      <div style="font:700 8px var(--M);color:var(--tx3);letter-spacing:.5px">PROPS</div>
+      <div style="font:800 14px var(--M);color:var(--tx)">${allForDay.length - dnpCount}</div>
+      ${dnpCount ? `<div style="font:400 7px var(--M);color:var(--tx4)">+${dnpCount} DNP</div>` : `<div style="font:400 7px var(--M);color:var(--tx4)">${gm.length}G</div>`}
     </div>
-    <div class="sb"><div class="sb-v">${gm.length}</div><div class="sb-l">Games</div></div>
-    <div class="sb" style="cursor:pointer;${fTier === '1' ? sbActive : ''}" onclick="fTier=fTier==='1'?'all':'1';render()">
-      <div class="sb-v" style="color:var(--yl)">${t1}</div><div class="sb-l">Tier 1</div>
+    <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;padding:5px 10px;border-radius:8px;background:var(--bg1);border:1px solid ${overallHR !== null ? overallC+'44' : 'var(--bg2)'};min-width:52px">
+      <div style="font:700 8px var(--M);color:var(--tx3);letter-spacing:.5px">HR%</div>
+      <div style="font:800 14px var(--M);color:${overallC}">${overallHR !== null ? overallHR + '%' : '—'}</div>
+      ${gradedForDay.length ? `<div style="font:400 7px var(--M);color:var(--tx4)">${winsForDay}W/${gradedForDay.length-winsForDay}L</div>` : '<div style="font:400 7px var(--M);color:var(--tx4)">pre-game</div>'}
     </div>
-    <div class="sb" style="cursor:pointer;${fTier === '2' ? sbActive : ''}" onclick="fTier=fTier==='2'?'all':'2';render()">
-      <div class="sb-v" style="color:var(--tier2)">${t2}</div><div class="sb-l">Tier 2</div>
-    </div>
+    <div style="width:1px;background:var(--bg2);margin:2px 0;align-self:stretch"></div>
+    ${ultraPlays.length ? tierBox('ULTRA', 'T1_ULTRA', ultraPlays, 'var(--yl)', 'rgba(245,158,11,.12)', fTier==='ultra', "fTier=fTier==='ultra'?'all':'ultra';render()") : ''}
+    ${premPlays.length  ? tierBox('PREM',  'T1_PREMIUM',premPlays, 'var(--yl)', 'rgba(245,158,11,.08)', fTier==='prem',  "fTier=fTier==='prem'?'all':'prem';render()")  : ''}
+    ${t1Plays.length    ? tierBox('T1',    'T1',       t1Plays,   'var(--yl)', 'rgba(245,158,11,.07)', fTier==='1',     "fTier=fTier==='1'?'all':'1';render()")           : ''}
+    ${t2Plays.length    ? tierBox('T2',    'T2',       t2Plays,   'var(--tier2)', 'rgba(99,102,241,.1)', fTier==='2',   "fTier=fTier==='2'?'all':'2';render()")           : ''}
   </div>`;
 
   // Day record bar
   const _searchLower = fSearch.trim().toLowerCase();
   const _searchFiltered = _searchLower ? valid.filter(p => p.player.toLowerCase().includes(_searchLower) || p.match.toLowerCase().includes(_searchLower)) : valid;
   const filtBase = fMatch === 'all' ? _searchFiltered : _searchFiltered.filter(p => p.match === fMatch);
-  const fbGraded = filtBase.filter(p => p.result === 'WIN' || p.result === 'LOSS');
+  const fbGraded = filtBase.filter(p => (p.result === 'WIN' || p.result === 'LOSS') && !isDNP(p));
   const fbWins = fbGraded.filter(p => p.result === 'WIN').length;
   const fbHR = fbGraded.length ? (fbWins / fbGraded.length * 100).toFixed(1) : null;
 
@@ -537,16 +584,18 @@ function renderDaily(DS, dates, curDate) {
   </div></div>`;
 
   // Apply filters
-  let fl = fRes === 'void' ? dayAll.filter(p => isVoid(p)) : [...valid];
+  let fl = fRes === 'void' ? dayAll.filter(p => isVoid(p)) : fRes === 'dnp' ? valid.filter(p => isDNP(p)) : [...valid];
   if (fDir === 'over') fl = fl.filter(p => p.dir === 'OVER');
   if (fDir === 'under') fl = fl.filter(p => p.dir === 'UNDER');
   if (fDir === 'lean') fl = fl.filter(p => isLean(p));
   if (fRes === 'w') fl = fl.filter(p => p.result === 'WIN');
   if (fRes === 'l') fl = fl.filter(p => p.result === 'LOSS');
   if (fRes === 'graded') fl = fl.filter(p => p.result === 'WIN' || p.result === 'LOSS');
-  if (fTier === '1') fl = fl.filter(p => p.tier === 1);
-  if (fTier === '2') fl = fl.filter(p => p.tier === 2);
-  if (fTier === '3') fl = fl.filter(p => p.tier === 3);
+  if (fTier === 'ultra') fl = fl.filter(p => p.tierLabel === 'T1_ULTRA');
+  else if (fTier === 'prem') fl = fl.filter(p => p.tierLabel === 'T1_PREMIUM');
+  else if (fTier === '1') fl = fl.filter(p => p.tier === 1);
+  else if (fTier === '2') fl = fl.filter(p => p.tier === 2);
+  else if (fTier === '3') fl = fl.filter(p => p.tier === 3);
   if (fMatch !== 'all') fl = fl.filter(p => p.match === fMatch);
   if (fConf > 0) fl = fl.filter(p => p.conf >= fConf / 100);
   if (_searchLower) fl = fl.filter(p => p.player.toLowerCase().includes(_searchLower) || p.match.toLowerCase().includes(_searchLower));
@@ -558,7 +607,7 @@ function renderDaily(DS, dates, curDate) {
   else if (srt === 'name') fl.sort((a, b) => a.player.localeCompare(b.player));
   else if (srt === 'line') fl.sort((a, b) => (b.line || 0) - (a.line || 0));
   else if (srt === 'result') fl.sort((a, b) => { const ro = { WIN: 0, LOSS: 1 }; return (ro[a.result] ?? 2) - (ro[b.result] ?? 2) || b.conf - a.conf; });
-  else fl.sort((a, b) => a.tier - b.tier || b.conf - a.conf);
+  else fl.sort((a, b) => (b.date||'').localeCompare(a.date||'') || a.tier - b.tier || b.conf - a.conf);
 
   const dLbl = curDate ? new Date(curDate + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '';
   h += `<div class="pcount">${fl.length} plays${isPreGame ? ' · Pre-game' : ''} · ${dLbl} · Tap card to expand</div>`;
@@ -581,9 +630,9 @@ function card(p) {
   const k = p.player + '_' + p.date + '_' + p.line;
   const o = exp.has(k);
   const flagC = (p.flags || 0) >= 8 ? 'var(--gr)' : (p.flags || 0) >= 6 ? 'var(--yl)' : 'var(--rd)';
-  const void_ = isVoid(p);
+  const void_ = isVoid(p);  // DNP handled separately
 
-  let h = `<div class="cd ${bdr} ${void_ ? 'vd' : ''} ${lean ? 'lean' : ''}" onclick="tgl('${k.replace(/'/g, "\\'")}')">`;
+  let h = `<div class="cd ${bdr} ${void_ ? 'vd' : ''} ${isDNP(p) ? 'vd' : ''} ${lean ? 'lean' : ''}" onclick="tgl('${k.replace(/'/g, "\\'")}')">`;
 
   // ── Top row ──
   const homeIcon = p.isHome === true ? '<span style="font-size:14px;line-height:1">🏠</span>' : p.isHome === false ? '<span style="font-size:14px;line-height:1">✈️</span>' : '';
@@ -609,8 +658,10 @@ function card(p) {
     </div>
     <div style="display:flex;flex-direction:column;align-items:flex-end;gap:3px;margin-left:8px;flex-shrink:0">`;
 
-  if (void_) {
-    h += `<span style="font:700 9px var(--M);padding:2px 7px;border-radius:5px;background:var(--bg2);color:var(--tx4)">VOID</span><span style="font:400 8px var(--M);color:var(--tx4)">DNP</span>`;
+  if (isDNP(p)) {
+    h += `<span style="font:700 9px var(--M);padding:3px 8px;border-radius:5px;background:rgba(245,158,11,.15);color:var(--yl);border:1px solid rgba(245,158,11,.35)">DNP</span>`;
+  } else if (void_) {
+    h += `<span style="font:700 9px var(--M);padding:2px 7px;border-radius:5px;background:var(--bg2);color:var(--tx4)">VOID</span>`;
   } else if (p.result === 'WIN') {
     h += `<span style="font:800 11px var(--M);padding:4px 11px;border-radius:7px;background:var(--grA);color:var(--gr);letter-spacing:.5px">WIN</span>`;
     if (p.delta != null) h += `<span style="font:500 9px var(--M);color:var(--gr)">${p.delta > 0 ? '+' : ''}${p.delta}</span>`;

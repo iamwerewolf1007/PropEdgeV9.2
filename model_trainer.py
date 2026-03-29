@@ -108,7 +108,13 @@ def build_training_data(file_2425, file_2526, file_h2h):
     base['is_b2b']           = (base['_rest'] == 1).astype(int)
     base['rest_days']        = base['_rest'].astype(int)
     base['consistency']      = (1 / (base['_std10'] + 1)).round(3)
-    base['pace_rank']        = 15  # placeholder — computed at predict time
+
+    # pace_rank: real per-row value from opponent team FGA (same method as batch_predict)
+    # FIX: was hardcoded=15 so GBR had zero variance → could not learn pace signal
+    team_fga_mean = combined.groupby('OPPONENT')['FGA'].mean()
+    fga_sorted    = team_fga_mean.sort_values(ascending=False)
+    pace_rank_map = {team: i + 1 for i, team in enumerate(fga_sorted.index)}
+    base['pace_rank'] = base['OPPONENT'].map(pace_rank_map).fillna(15).astype(int)
 
     # DVP per row
     def _dvp(row):
