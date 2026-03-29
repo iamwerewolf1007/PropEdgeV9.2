@@ -6,3 +6,4 @@ ts,batch,event,file,rows_before,rows_after,detail
 2026-03-29 18:13:51,B2,PREDICTIONS,,,,"103 plays, skipped 2"
 2026-03-29 18:13:51,B2,BATCH_SUMMARY,,,,"props_fetched=103, plays_added=103"
 2026-03-29 18:13:51,B2,INTEGRITY_OK,/Users/salman/Documents/GitHub/PropEdgeV9.2/data/today.json,0,103,SAVE_TODAY
+2026-03-29 18:14:27,B2,BATCH_COMPLETE,,,,
