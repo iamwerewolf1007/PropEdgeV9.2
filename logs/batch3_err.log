@@ -1,0 +1,2 @@
+shell-init: error retrieving current directory: getcwd: cannot access parent directories: Operation not permitted
+/bin/bash: /Users/salman/Documents/GitHub/PropEdgeV9.2/batch3_dynamic.sh: Operation not permitted
