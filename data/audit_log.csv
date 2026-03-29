@@ -1,0 +1,8 @@
+ts,batch,event,file,rows_before,rows_after,detail
+2026-03-29 18:09:09,GEN,SEASON_2425_GENERATED,season_2024_25.json,,10515,
+2026-03-29 18:12:45,GEN,SEASON_2526_GENERATED,season_2025_26.json,,15911,
+2026-03-29 18:13:33,B2,BATCH_START,,,,2026-03-29
+2026-03-29 18:13:40,B2,PROPS_FETCHED,,,,"105 props, 9 games"
+2026-03-29 18:13:51,B2,PREDICTIONS,,,,"103 plays, skipped 2"
+2026-03-29 18:13:51,B2,BATCH_SUMMARY,,,,"props_fetched=103, plays_added=103"
+2026-03-29 18:13:51,B2,INTEGRITY_OK,/Users/salman/Documents/GitHub/PropEdgeV9.2/data/today.json,0,103,SAVE_TODAY

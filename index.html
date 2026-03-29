@@ -1,0 +1,660 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>PropEdge V9.2</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=DM+Sans:wght@300;400;500;600;700&display=swap');
+:root{
+  --bg:#0a0a0f;--card:#12121a;--card-hover:#1a1a25;
+  --border:#2a2a3a;--text:#e0e0e0;--text-dim:#8888aa;
+  --accent:#6366f1;--green:#22c55e;--red:#ef4444;--amber:#f59e0b;
+  --mono:'Space Mono',monospace;--body:'DM Sans',sans-serif;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:var(--body);font-size:14px;min-height:100vh}
+body::before{content:'';position:fixed;inset:0;background:
+  radial-gradient(ellipse 80% 50% at 20% 0%,rgba(99,102,241,.06),transparent 60%),
+  radial-gradient(ellipse 60% 40% at 80% 100%,rgba(245,158,11,.04),transparent 50%);
+  pointer-events:none;z-index:0}
+
+/* ── NAV ── */
+#nav{position:sticky;top:0;z-index:100;background:rgba(10,10,15,.93);backdrop-filter:blur(12px);
+  border-bottom:1px solid var(--border);padding:0 20px;height:52px;display:flex;align-items:center;gap:12px}
+.logo{font-family:var(--mono);font-size:12px;font-weight:700;color:var(--amber);letter-spacing:2px}
+.logo em{color:var(--accent);font-style:normal}
+.logo span{color:var(--text-dim);font-weight:400}
+.stoggle{display:flex;gap:2px;background:rgba(42,42,58,.6);border-radius:8px;padding:3px}
+.sbtn{padding:4px 10px;border-radius:6px;border:none;cursor:pointer;
+  font-family:var(--body);font-size:12px;font-weight:600;color:var(--text-dim);background:transparent;transition:all .15s}
+.sbtn.active{background:var(--accent);color:#fff}
+.spacer{flex:1}
+
+/* ── DAILY STATS BAR ── */
+#dstats{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+.dsbox{display:flex;align-items:center;gap:5px;background:rgba(42,42,58,.5);
+  border:1px solid var(--border);border-radius:6px;padding:3px 8px}
+.dsbox.ultra{border-color:rgba(245,158,11,.5);background:rgba(245,158,11,.07)}
+.dsbox.prem{border-color:rgba(245,158,11,.3)}
+.dslabel{font-size:9px;color:var(--text-dim);font-weight:700;letter-spacing:.5px;text-transform:uppercase}
+.dsval{font-family:var(--mono);font-size:12px;font-weight:700}
+.dshr{font-size:9px;margin-left:2px}
+.dssep{width:1px;height:14px;background:var(--border)}
+
+/* ── FILTERS ── */
+#fbar{position:sticky;top:52px;z-index:99;background:rgba(10,10,15,.91);backdrop-filter:blur(12px);
+  border-bottom:1px solid var(--border);padding:8px 20px;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+select,input[type=text]{background:rgba(42,42,58,.6);border:1px solid var(--border);color:var(--text);
+  border-radius:6px;padding:5px 10px;font-family:var(--body);font-size:12px;outline:none;cursor:pointer;transition:border-color .15s}
+select:hover,input[type=text]:hover{border-color:var(--accent)}
+input[type=text]{width:160px}
+input[type=text]::placeholder{color:var(--text-dim)}
+.datenav{display:flex;align-items:center;gap:4px;background:rgba(42,42,58,.5);
+  border:1px solid var(--border);border-radius:8px;padding:3px 6px}
+.darrow{background:none;border:none;color:var(--text-dim);cursor:pointer;font-size:18px;
+  padding:1px 5px;border-radius:4px;transition:all .15s;line-height:1}
+.darrow:hover{background:rgba(99,102,241,.2);color:var(--text)}
+.darrow:disabled{opacity:.3;cursor:default}
+#dlabel{font-family:var(--mono);font-size:11px;font-weight:700;min-width:100px;text-align:center}
+.tabs{display:flex;gap:2px;background:rgba(42,42,58,.4);border-radius:8px;padding:3px;margin-left:auto}
+.tab{padding:4px 12px;border-radius:6px;border:none;cursor:pointer;
+  font-family:var(--body);font-size:12px;font-weight:500;color:var(--text-dim);background:transparent;transition:all .15s}
+.tab.active{background:rgba(99,102,241,.2);color:var(--accent)}
+
+/* ── MAIN ── */
+#main{padding:16px 20px;position:relative;z-index:1}
+#pgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:10px}
+#lbview,#stview{display:none}
+
+/* ── CARDS ── */
+.card{background:var(--card);border:1px solid var(--border);border-radius:10px;
+  overflow:hidden;transition:all .2s;cursor:pointer}
+.card:hover{background:var(--card-hover);border-color:rgba(99,102,241,.35);
+  transform:translateY(-1px);box-shadow:0 4px 24px rgba(0,0,0,.3)}
+.card.lean{border-style:dashed;opacity:.82}
+.card.lean:hover{opacity:1}
+.card.dnp{opacity:.55}
+.chead{padding:10px 12px 8px;display:flex;align-items:flex-start;gap:8px}
+.tbadge{font-family:var(--mono);font-size:9px;font-weight:700;padding:3px 7px;
+  border-radius:4px;letter-spacing:.8px;white-space:nowrap;flex-shrink:0}
+.t-ultra{background:linear-gradient(135deg,#f59e0b,#fbbf24);color:#000;box-shadow:0 0 12px rgba(245,158,11,.4)}
+.t-prem{background:rgba(245,158,11,.18);color:var(--amber);border:1px solid rgba(245,158,11,.4)}
+.t-t1{background:rgba(245,158,11,.12);color:var(--amber);border:1px solid rgba(245,158,11,.25)}
+.t-t2{background:rgba(99,102,241,.15);color:#a5b4fc;border:1px solid rgba(99,102,241,.3)}
+.t-t3{background:rgba(100,116,139,.12);color:#94a3b8;border:1px solid rgba(100,116,139,.25)}
+.t-lean{background:transparent;color:#64748b;border:1px dashed #334155}
+.ctitle{flex:1;min-width:0}
+.cpname{font-size:14px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cmatch{font-size:11px;color:var(--text-dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:2px}
+.dbadge{font-family:var(--mono);font-size:11px;font-weight:700;padding:3px 8px;border-radius:4px;flex-shrink:0}
+.d-over{background:rgba(34,197,94,.15);color:var(--green);border:1px solid rgba(34,197,94,.3)}
+.d-under{background:rgba(239,68,68,.15);color:var(--red);border:1px solid rgba(239,68,68,.3)}
+.d-lean{background:rgba(100,116,139,.1);color:#94a3b8;border:1px solid #334155}
+.cnums{display:flex;border-top:1px solid var(--border);border-bottom:1px solid var(--border)}
+.cn{flex:1;text-align:center;padding:7px 4px;border-right:1px solid var(--border)}
+.cn:last-child{border-right:none}
+.cnl{font-size:9px;color:var(--text-dim);letter-spacing:.5px;text-transform:uppercase}
+.cnv{font-family:var(--mono);font-size:13px;font-weight:700;margin-top:1px}
+.cnv.g{color:var(--green)}.cnv.r{color:var(--red)}.cnv.a{color:var(--amber)}
+.cflags{display:flex;flex-wrap:wrap;gap:3px;padding:8px 12px}
+.fl{width:24px;height:24px;border-radius:4px;display:flex;align-items:center;
+  justify-content:center;font-size:7px;font-weight:700;cursor:default}
+.fl.on{background:rgba(34,197,94,.15);color:var(--green);border:1px solid rgba(34,197,94,.25)}
+.fl.off{background:rgba(239,68,68,.1);color:#ef4444aa;border:1px solid rgba(239,68,68,.18)}
+.flcount{font-family:var(--mono);font-size:11px;color:var(--text-dim);margin-left:auto;align-self:center;padding-right:4px}
+
+/* ── SPARKLINE (L20, 72px tall, high-contrast) ── */
+.cspark{padding:6px 12px 10px}
+.sparkhead{display:flex;justify-content:space-between;align-items:center;margin-bottom:4px}
+.sparktitle{font-family:var(--mono);font-size:10px;color:var(--accent)}
+.sparkleg{display:flex;gap:8px;font-size:9px}
+.sparkleg .leg{display:flex;align-items:center;gap:3px;color:var(--text-dim)}
+.sparkleg .dot{width:7px;height:7px;border-radius:50%}
+.sparkwrap canvas{display:block;border-radius:4px}
+
+/* ── CARD DETAIL ── */
+.cdetail{display:none;border-top:1px solid var(--border);padding:10px 12px}
+.card.open .cdetail{display:block}
+.dsec{margin-bottom:10px}
+.dstitle{font-size:10px;font-weight:700;color:var(--text-dim);text-transform:uppercase;letter-spacing:1px;margin-bottom:6px}
+.h2hpanel{background:rgba(42,42,58,.35);border-radius:6px;padding:8px 10px;
+  display:grid;grid-template-columns:1fr 1fr;gap:4px 16px}
+.h2hi{display:flex;justify-content:space-between;font-size:12px}
+.h2hi .k{color:var(--text-dim)}.h2hi .v{font-family:var(--mono);font-weight:700}
+.vpos{color:var(--green)}.vneg{color:var(--red)}
+.lhist{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.lhi{display:flex;flex-direction:column;align-items:center;gap:2px}
+.lhib{font-size:9px;color:var(--text-dim);font-weight:600}
+.lhiv{font-family:var(--mono);font-size:12px;font-weight:700}
+.lhit{font-size:9px;color:var(--text-dim)}
+.lharr{color:var(--text-dim);font-size:13px}
+.predrow{display:flex;align-items:center;gap:8px;font-size:12px}
+.predpts{font-family:var(--mono);font-weight:700;font-size:16px;color:var(--accent)}
+.rtext{font-size:12px;line-height:1.65;color:var(--text-dim);background:rgba(42,42,58,.25);
+  border-radius:6px;padding:8px 10px;border-left:2px solid var(--accent)}
+.rtext.win{border-left-color:var(--green)}.rtext.loss{border-left-color:var(--red)}
+.ltbadge{display:inline-block;font-family:var(--mono);font-size:9px;font-weight:700;
+  padding:2px 6px;border-radius:3px;background:rgba(239,68,68,.15);
+  color:var(--red);border:1px solid rgba(239,68,68,.3);margin-top:4px}
+.rbadge{font-family:var(--mono);font-size:10px;font-weight:700;padding:2px 7px;border-radius:4px}
+.rb-win{background:rgba(34,197,94,.15);color:var(--green);border:1px solid rgba(34,197,94,.3)}
+.rb-loss{background:rgba(239,68,68,.15);color:var(--red);border:1px solid rgba(239,68,68,.3)}
+.rb-dnp{background:rgba(245,158,11,.1);color:var(--amber);border:1px solid rgba(245,158,11,.3)}
+
+/* ── LEADERBOARD ── */
+#lbview{background:var(--card);border:1px solid var(--border);border-radius:10px;overflow:hidden}
+.lbt{width:100%;border-collapse:collapse}
+.lbt th{padding:8px 12px;text-align:left;font-size:10px;font-weight:700;color:var(--text-dim);
+  text-transform:uppercase;letter-spacing:.8px;border-bottom:1px solid var(--border);
+  background:rgba(42,42,58,.3);cursor:pointer}
+.lbt th:hover{color:var(--text)}
+.lbt td{padding:8px 12px;border-bottom:1px solid rgba(42,42,58,.5);font-size:13px}
+.lbt tr:hover td{background:rgba(42,42,58,.3);cursor:pointer}
+.lpname{font-weight:600}.lteam{font-size:11px;color:var(--text-dim);font-family:var(--mono)}
+.mbar{height:4px;width:60px;background:var(--border);border-radius:2px;overflow:hidden;margin-top:2px}
+.mbarfill{height:100%;border-radius:2px}
+.drow td{background:rgba(18,18,26,.9)!important}
+.dtbl{width:100%;border-collapse:collapse}
+.dtbl td{padding:5px 12px;font-size:12px;border-bottom:1px solid rgba(42,42,58,.3);color:var(--text-dim)}
+.valink{font-size:11px;color:var(--accent);cursor:pointer;text-decoration:underline;padding:6px 12px;display:block}
+
+/* ── STATS ── */
+#stview{display:none}
+.sgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px}
+.scard{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:14px}
+.sctitle{font-size:10px;font-weight:700;color:var(--text-dim);text-transform:uppercase;letter-spacing:1px;margin-bottom:10px}
+.srow{display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid rgba(42,42,58,.4)}
+.srow:last-child{border-bottom:none}
+.slabel{font-size:12px;color:var(--text-dim)}.sval{font-family:var(--mono);font-size:12px;font-weight:700}
+.sval.g{color:var(--green)}.sval.a{color:var(--amber)}
+
+/* ── MISC ── */
+.empty{text-align:center;padding:60px 20px;color:var(--text-dim);grid-column:1/-1}
+.empty-icon{font-size:36px;margin-bottom:10px;opacity:.3}
+#loading{position:fixed;inset:0;background:var(--bg);display:flex;flex-direction:column;
+  align-items:center;justify-content:center;z-index:1000;gap:14px}
+.lring{width:36px;height:36px;border:3px solid var(--border);border-top-color:var(--accent);
+  border-radius:50%;animation:spin .8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.ltext{font-family:var(--mono);font-size:11px;color:var(--text-dim);letter-spacing:2px}
+#stbtn{position:fixed;bottom:20px;right:20px;width:36px;height:36px;
+  background:rgba(42,42,58,.9);border:1px solid var(--border);border-radius:8px;
+  cursor:pointer;display:none;align-items:center;justify-content:center;font-size:14px;z-index:50}
+#stbtn.show{display:flex}
+@media(max-width:640px){#pgrid{grid-template-columns:1fr}#dstats{display:none}}
+</style>
+</head>
+<body>
+
+<div id="loading"><div class="lring"></div><div class="ltext">PROPEDGE V9.2</div></div>
+
+<nav id="nav">
+  <div class="logo">PROP<span>EDGE</span> <em>V9.2</em></div>
+  <div class="stoggle">
+    <button class="sbtn" id="btn-today"  onclick="setSeason('today')">Today</button>
+    <button class="sbtn active" id="btn-2526" onclick="setSeason('2025-26')">25-26</button>
+    <button class="sbtn" id="btn-2425"  onclick="setSeason('2024-25')">24-25</button>
+  </div>
+  <div class="spacer"></div>
+  <div id="dstats"></div>
+</nav>
+
+<div id="fbar">
+  <div class="datenav">
+    <button class="darrow" id="dprev" onclick="navDate(-1)" title="Previous day">&#8249;</button>
+    <span id="dlabel">ALL DATES</span>
+    <button class="darrow" id="dnext" onclick="navDate(1)"  title="Next day">&#8250;</button>
+  </div>
+  <select id="ftier" onchange="applyFilters()">
+    <option value="">All Tiers</option>
+    <option value="T1_ULTRA">T1 ULTRA</option>
+    <option value="T1_PREMIUM">T1 PREMIUM</option>
+    <option value="T1">T1</option>
+    <option value="T2">T2</option>
+    <option value="T3">T3</option>
+    <option value="T3_LEAN">T3 LEAN</option>
+  </select>
+  <select id="fdir" onchange="applyFilters()">
+    <option value="">All Directions</option>
+    <option value="OVER">OVER</option>
+    <option value="UNDER">UNDER</option>
+    <option value="LEAN">LEAN</option>
+  </select>
+  <select id="fres" onchange="applyFilters()">
+    <option value="">All Results</option>
+    <option value="WIN">WIN</option>
+    <option value="LOSS">LOSS</option>
+    <option value="DNP">DNP</option>
+    <option value="ungraded">Ungraded</option>
+  </select>
+  <select id="fpos" onchange="applyFilters()">
+    <option value="">All Positions</option>
+    <option value="Guard">Guard</option>
+    <option value="Forward">Forward</option>
+    <option value="Center">Center</option>
+  </select>
+  <select id="fsort" onchange="applyFilters()">
+    <option value="tier">Sort: Tier</option>
+    <option value="conf">Sort: Confidence</option>
+    <option value="player">Sort: Player</option>
+    <option value="date">Sort: Date ↓</option>
+    <option value="delta">Sort: Delta</option>
+  </select>
+  <input type="text" id="fsearch" placeholder="Search… (Enter)"
+         onkeydown="if(event.key==='Enter')applyFilters()"
+         oninput="if(this.value==='')applyFilters()">
+  <div class="tabs">
+    <button class="tab active" onclick="setView('plays')">Plays</button>
+    <button class="tab" onclick="setView('lb')">Leaderboard</button>
+    <button class="tab" onclick="setView('stats')">Stats</button>
+  </div>
+</div>
+
+<div id="main">
+  <div id="pgrid"></div>
+  <div id="lbview"></div>
+  <div id="stview"></div>
+</div>
+<div id="stbtn" onclick="window.scrollTo({top:0,behavior:'smooth'})">↑</div>
+
+<script>
+// ─── STATE ───────────────────────────────────────────────────
+let allPlays=[], filtered=[], season='2025-26', view='plays';
+let dates=[], dateIdx=0;  // dates sorted DESC; dateIdx=0=newest
+
+const PATHS={'today':'data/today.json','2025-26':'data/season_2025_26.json','2024-25':'data/season_2024_25.json'};
+const TRANK={T1_ULTRA:0,T1_PREMIUM:1,T1:2,T2:3,T3:4,T3_LEAN:5};
+const FABBR={'Volume':'VOL','HR L30':'H30','HR L10':'H10','Trend':'TRD','Context':'CTX',
+             'Defense':'DEF','H2H':'H2H','Pace':'PCE','FG Trend':'FGT','Min Trend':'MIN'};
+
+// ─── LOAD ────────────────────────────────────────────────────
+async function loadSeason(s){
+  try{const r=await fetch(PATHS[s]+'?t='+Date.now());return r.ok?await r.json():[];}
+  catch{return[];}
+}
+
+async function init(){
+  document.getElementById('loading').style.display='flex';
+  allPlays=await loadSeason(season);
+  buildDates();
+  document.getElementById('loading').style.display='none';
+  applyFilters();
+}
+
+function buildDates(){
+  const ds=[...new Set(allPlays.map(p=>p.date).filter(Boolean))].sort((a,b)=>b.localeCompare(a));
+  dates=ds; dateIdx=ds.length>0?0:-1;
+  updateDateUI();
+}
+
+// ─── SEASON / VIEW ───────────────────────────────────────────
+async function setSeason(s){
+  season=s;
+  document.querySelectorAll('.sbtn').forEach(b=>b.classList.remove('active'));
+  const id={'today':'btn-today','2025-26':'btn-2526','2024-25':'btn-2425'}[s];
+  document.getElementById(id)?.classList.add('active');
+  document.getElementById('loading').style.display='flex';
+  allPlays=await loadSeason(s);
+  buildDates();
+  document.getElementById('loading').style.display='none';
+  applyFilters();
+}
+
+function setView(v){
+  view=v;
+  document.querySelectorAll('.tab').forEach((b,i)=>b.classList.toggle('active',['plays','lb','stats'][i]===v));
+  document.getElementById('pgrid').style.display=v==='plays'?'grid':'none';
+  document.getElementById('lbview').style.display=v==='lb'?'block':'none';
+  document.getElementById('stview').style.display=v==='stats'?'block':'none';
+  if(v==='lb')renderLB(filtered);
+  if(v==='stats')renderStats(filtered);
+}
+
+// ─── DATE NAV ────────────────────────────────────────────────
+function navDate(d){
+  if(!dates.length)return;
+  dateIdx=Math.max(0,Math.min(dates.length-1,(dateIdx<0?0:dateIdx)+d));
+  updateDateUI(); applyFilters();
+}
+function updateDateUI(){
+  const el=document.getElementById('dlabel');
+  if(dateIdx<0||!dates.length){el.textContent='ALL DATES';}
+  else{
+    const dt=new Date(dates[dateIdx]+'T12:00:00');
+    el.textContent=dt.toLocaleDateString('en-GB',{month:'short',day:'numeric'}).toUpperCase()+' ('+(dateIdx+1)+'/'+dates.length+')';
+  }
+  document.getElementById('dprev').disabled=dateIdx<=0;
+  document.getElementById('dnext').disabled=dateIdx>=dates.length-1;
+}
+
+// ─── FILTERS ─────────────────────────────────────────────────
+function applyFilters(){
+  const tier=document.getElementById('ftier').value;
+  const dir=document.getElementById('fdir').value;
+  const res=document.getElementById('fres').value;
+  const pos=document.getElementById('fpos').value;
+  const sort=document.getElementById('fsort').value;
+  const search=document.getElementById('fsearch').value.trim().toLowerCase();
+  const activeDate=dateIdx>=0&&dateIdx<dates.length?dates[dateIdx]:null;
+
+  filtered=allPlays.filter(p=>{
+    if(activeDate&&p.date!==activeDate)return false;
+    if(tier&&p.tierLabel!==tier)return false;
+    if(dir){
+      const d=p.dir||'';
+      if(dir==='OVER'&&(!d.includes('OVER')||d.includes('LEAN')))return false;
+      if(dir==='UNDER'&&(!d.includes('UNDER')||d.includes('LEAN')))return false;
+      if(dir==='LEAN'&&!d.includes('LEAN'))return false;
+    }
+    if(res){
+      if(res==='ungraded'&&p.result)return false;
+      if(res!=='ungraded'&&p.result!==res)return false;
+    }
+    if(pos&&p.position!==pos)return false;
+    if(search&&!(p.player||'').toLowerCase().includes(search)&&!(p.match||'').toLowerCase().includes(search))return false;
+    return true;
+  });
+
+  // Sort: date DESC primary, then tier+conf within date
+  filtered.sort((a,b)=>{
+    if(sort==='tier'){
+      const dd=(b.date||'').localeCompare(a.date||'');if(dd)return dd;
+      const td=(TRANK[a.tierLabel]||4)-(TRANK[b.tierLabel]||4);if(td)return td;
+      return(b.conf||0)-(a.conf||0);
+    }
+    if(sort==='date')return(b.date||'').localeCompare(a.date||'');
+    if(sort==='conf')return(b.conf||0)-(a.conf||0);
+    if(sort==='player')return(a.player||'').localeCompare(b.player||'');
+    if(sort==='delta')return(b.delta||0)-(a.delta||0);
+    return 0;
+  });
+
+  updateDailyStats(filtered,activeDate);
+  if(view==='plays')renderPlays(filtered);
+  else if(view==='lb')renderLB(filtered);
+  else renderStats(filtered);
+}
+
+// ─── DAILY STATS BAR ─────────────────────────────────────────
+function updateDailyStats(plays,dateStr){
+  // Exclude DNP from hit rate
+  const graded=plays.filter(p=>p.result==='WIN'||p.result==='LOSS');
+  const wins=graded.filter(p=>p.result==='WIN').length;
+  const hr=graded.length?Math.round(wins/graded.length*100):null;
+  const ultra=plays.filter(p=>p.tierLabel==='T1_ULTRA');
+  const prem=plays.filter(p=>p.tierLabel==='T1_PREMIUM');
+  const t1=plays.filter(p=>p.tierLabel==='T1');
+  const t2=plays.filter(p=>p.tierLabel==='T2');
+
+  function thr(arr){
+    const g=arr.filter(p=>p.result==='WIN'||p.result==='LOSS');
+    const w=g.filter(p=>p.result==='WIN').length;
+    return g.length?Math.round(w/g.length*100)+'%':null;
+  }
+  function hrColor(h){return h>=60?'var(--green)':h>=50?'var(--amber)':'var(--red)';}
+
+  const dlabel=dateStr?new Date(dateStr+'T12:00:00').toLocaleDateString('en-GB',{month:'short',day:'numeric'}):'All';
+  let h=`<div class="dsbox"><span class="dslabel">DATE</span><span class="dsval">${dlabel}</span></div>
+         <div class="dsbox"><span class="dslabel">PROPS</span><span class="dsval">${plays.length}</span></div>`;
+  if(hr!==null)h+=`<div class="dsbox"><span class="dslabel">HR%</span><span class="dsval" style="color:${hrColor(hr)}">${hr}%</span><span class="dshr" style="color:var(--text-dim)">(${graded.length}g)</span></div>`;
+  h+=`<div class="dssep"></div>`;
+  if(ultra.length){const th=thr(ultra);h+=`<div class="dsbox ultra"><span class="dslabel">ULTRA</span><span class="dsval" style="color:var(--amber)">${ultra.length}</span>${th?`<span class="dshr" style="color:var(--green)">${th}</span>`:''}</div>`;}
+  if(prem.length){const th=thr(prem);h+=`<div class="dsbox prem"><span class="dslabel">PREM</span><span class="dsval" style="color:var(--amber)">${prem.length}</span>${th?`<span class="dshr" style="color:var(--green)">${th}</span>`:''}</div>`;}
+  if(t1.length){const th=thr(t1);h+=`<div class="dsbox"><span class="dslabel">T1</span><span class="dsval" style="color:var(--amber)">${t1.length}</span>${th?`<span class="dshr" style="color:var(--green)">${th}</span>`:''}</div>`;}
+  if(t2.length){const th=thr(t2);h+=`<div class="dsbox"><span class="dslabel">T2</span><span class="dsval" style="color:var(--accent)">${t2.length}</span>${th?`<span class="dshr" style="color:var(--text-dim)">${th}</span>`:''}</div>`;}
+  document.getElementById('dstats').innerHTML=h;
+}
+
+// ─── SPARKLINE ───────────────────────────────────────────────
+function drawSpark(canvas,scores,line,dir){
+  if(!scores||scores.length<2)return;
+  const W=canvas.width,H=canvas.height,ctx=canvas.getContext('2d');
+  ctx.clearRect(0,0,W,H);
+  const isOver=dir&&dir.includes('OVER');
+  const PL=8,PR=8,PT=10,PB=22;
+  const cw=W-PL-PR,ch=H-PT-PB;
+  const allV=[...scores,line];
+  const mx=Math.max(...allV)+2, mn=Math.max(0,Math.min(...allV)-2), rng=mx-mn||1;
+  const xOf=i=>PL+(i/(scores.length-1))*cw;
+  const yOf=v=>PT+ch-((v-mn)/rng)*ch;
+  const ly=yOf(line);
+
+  // Zone fills
+  ctx.fillStyle='rgba(34,197,94,.07)';
+  ctx.fillRect(PL,PT,cw,Math.max(0,ly-PT));
+  ctx.fillStyle='rgba(239,68,68,.07)';
+  ctx.fillRect(PL,ly,cw,PT+ch-ly);
+
+  // Prop line
+  ctx.strokeStyle='rgba(99,102,241,.7)';ctx.lineWidth=1.5;ctx.setLineDash([4,4]);
+  ctx.beginPath();ctx.moveTo(PL,ly);ctx.lineTo(PL+cw,ly);ctx.stroke();ctx.setLineDash([]);
+  ctx.fillStyle='rgba(99,102,241,.85)';ctx.font='9px Space Mono,monospace';
+  ctx.textAlign='right';ctx.fillText(line.toFixed(1),PL+cw,ly-3);
+
+  // Score path
+  const pts=scores.map((v,i)=>[xOf(i),yOf(v)]);
+  ctx.strokeStyle='rgba(148,163,184,.45)';ctx.lineWidth=1.5;ctx.lineJoin='round';
+  ctx.beginPath();pts.forEach((p,i)=>i?ctx.lineTo(...p):ctx.moveTo(...p));ctx.stroke();
+
+  // Dots + labels
+  scores.forEach((v,i)=>{
+    const[x,y]=pts[i],hit=isOver?v>line:v<line;
+    const col=hit?'#22c55e':'#ef4444';
+    ctx.shadowColor=col;ctx.shadowBlur=7;
+    ctx.fillStyle=col;ctx.beginPath();ctx.arc(x,y,4.5,0,Math.PI*2);ctx.fill();
+    ctx.shadowBlur=0;
+    ctx.fillStyle=hit?'rgba(34,197,94,.9)':'rgba(239,68,68,.8)';
+    ctx.font='bold 8px DM Sans,sans-serif';ctx.textAlign='center';
+    ctx.fillText(v,x,H-5);
+  });
+}
+
+// ─── HELPERS ─────────────────────────────────────────────────
+function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+function ea(s){return String(s||'').replace(/"/g,'&quot;').replace(/'/g,'&#39;');}
+function fl(v){return v!=null?Number(v).toFixed(1):'—';}
+function fc(v){return v!=null?Math.round(v*100)+'%':'—';}
+function tbcls(tl){return{T1_ULTRA:'t-ultra',T1_PREMIUM:'t-prem',T1:'t-t1',T2:'t-t2',T3:'t-t3',T3_LEAN:'t-lean'}[tl]||'t-t3';}
+function dcls(d){if(!d||d.includes('LEAN'))return'd-lean';return d.includes('UNDER')?'d-under':'d-over';}
+
+// ─── CARD BUILDER ────────────────────────────────────────────
+function mkCard(p){
+  const lean=p.dir?.includes('LEAN'),tl=p.tierLabel||'T3',res=p.result;
+  const isDnp=res==='DNP';
+  const rb=res?`<span class="rbadge ${res==='WIN'?'rb-win':res==='LOSS'?'rb-loss':'rb-dnp'}">${res}</span>`:'';
+
+  const flags=(p.flagDetails||[]).map(f=>`<div class="fl ${f.agrees?'on':'off'}" title="${esc(f.name)}: ${esc(f.detail)}">${FABBR[f.name]||f.name.slice(0,3)}</div>`).join('')+`<div class="flcount">${p.flags||0}/10</div>`;
+
+  const nums=`
+    <div class="cn"><div class="cnl">Line</div><div class="cnv">${fl(p.line)}</div></div>
+    <div class="cn"><div class="cnl">L30</div><div class="cnv">${fl(p.l30)}</div></div>
+    <div class="cn"><div class="cnl">L10</div><div class="cnv">${fl(p.l10)}</div></div>
+    <div class="cn"><div class="cnl">L5</div><div class="cnv">${fl(p.l5)}</div></div>
+    <div class="cn"><div class="cnl">L3</div><div class="cnv">${fl(p.l3)}</div></div>
+    <div class="cn"><div class="cnl">Conf</div><div class="cnv ${(p.conf||0)>=.65?'a':''}">${fc(p.conf)}</div></div>`;
+
+  const h2h=p.h2h?`<div class="dsec"><div class="dstitle">H2H Matchup</div>
+    <div class="h2hpanel">
+      <div class="h2hi"><span class="k">Avg pts</span><span class="v">${esc(p.h2h)}</span></div>
+      <div class="h2hi"><span class="k">Games</span><span class="v">${p.h2hG||'—'}</span></div>
+      <div class="h2hi"><span class="k">TS dev</span><span class="v ${(p.h2hTsDev||0)>0?'vpos':'vneg'}">${p.h2hTsDev!=null?((p.h2hTsDev>0?'+':'')+Number(p.h2hTsDev).toFixed(1)+'%'):'—'}</span></div>
+      <div class="h2hi"><span class="k">Profile</span><span class="v">${esc(p.h2hProfile||'—')}</span></div>
+      <div class="h2hi"><span class="k">Conf</span><span class="v">${p.h2hConfidence!=null?Math.round(p.h2hConfidence*100)+'%':'—'}</span></div>
+    </div></div>`:'';
+
+  let lh='';
+  if(p.lineHistory?.length){
+    const items=p.lineHistory.map((h,i)=>{
+      const nxt=p.lineHistory[i+1],arr=nxt?`<div class="lharr">${nxt.line>h.line?'↑':nxt.line<h.line?'↓':'→'}</div>`:'';
+      return`<div class="lhi"><div class="lhib">B${h.batch}</div><div class="lhiv">${fl(h.line)}</div><div class="lhit">${h.ts||''}</div></div>${arr}`;
+    }).join('');
+    lh=`<div class="dsec"><div class="dstitle">Line History</div><div class="lhist">${items}</div></div>`;
+  }
+
+  const pred=p.predPts?`<div class="dsec"><div class="dstitle">Model Projection</div>
+    <div class="predrow"><span class="predpts">${Number(p.predPts).toFixed(1)} pts</span>
+    <span style="font-size:12px;color:var(--text-dim)">${p.predGap!=null?'gap: '+Number(p.predGap).toFixed(1)+' pts':''}</span>${rb}</div></div>`
+    :`<div style="padding:4px 0">${rb}</div>`;
+
+  const pre=p.preMatchReason&&p.preMatchReason!=='Insufficient game history for analysis.'?`<div class="dsec"><div class="dstitle">Pre-Match Analysis</div><div class="rtext">${esc(p.preMatchReason)}</div></div>`:'';
+  const post=p.postMatchReason?`<div class="dsec"><div class="dstitle">Post-Match Analysis</div>
+    <div class="rtext ${res==='WIN'?'win':'loss'}">${esc(p.postMatchReason)}</div>
+    ${p.lossType&&res==='LOSS'?`<div class="ltbadge">${p.lossType}</div>`:''}</div>`:'';
+
+  const scores=p.recent20||p.recent||[];
+  return`<div class="card${lean?' lean':''}${isDnp?' dnp':''}" onclick="toggleCard(this)">
+    <div class="chead">
+      <div class="tbadge ${tbcls(tl)}">${tl}</div>
+      <div class="ctitle">
+        <div class="cpname">${esc(p.player||'')}</div>
+        <div class="cmatch">${esc(p.match||'')} · ${p.date||''}</div>
+      </div>
+      <div class="dbadge ${dcls(p.dir)}">${p.dir||'—'}</div>
+    </div>
+    <div class="cnums">${nums}</div>
+    <div class="cflags">${flags}</div>
+    <div class="cspark">
+      <div class="sparkhead">
+        <span class="sparktitle">L20 · Line: ${fl(p.line)}</span>
+        <div class="sparkleg">
+          <div class="leg"><div class="dot" style="background:var(--green)"></div>Hit</div>
+          <div class="leg"><div class="dot" style="background:var(--red)"></div>Miss</div>
+        </div>
+      </div>
+      <div class="sparkwrap">
+        <canvas width="316" height="72"
+          data-sc="${ea(JSON.stringify(scores))}"
+          data-line="${p.line||0}" data-dir="${ea(p.dir||'')}"></canvas>
+      </div>
+    </div>
+    <div class="cdetail">${pred}${h2h}${lh}${pre}${post}</div>
+  </div>`;
+}
+
+function toggleCard(el){
+  el.classList.toggle('open');
+  el.querySelectorAll('canvas[data-sc]').forEach(c=>{
+    try{drawSpark(c,JSON.parse(c.dataset.sc),parseFloat(c.dataset.line),c.dataset.dir);}catch{}
+  });
+}
+
+function renderPlays(plays){
+  const g=document.getElementById('pgrid');
+  if(!plays.length){g.innerHTML='<div class="empty"><div class="empty-icon">📊</div><div>No plays match your filters</div></div>';return;}
+  g.innerHTML=plays.map(mkCard).join('');
+  g.querySelectorAll('canvas[data-sc]').forEach(c=>{
+    try{drawSpark(c,JSON.parse(c.dataset.sc),parseFloat(c.dataset.line),c.dataset.dir);}catch{}
+  });
+}
+
+// ─── LEADERBOARD ─────────────────────────────────────────────
+let lbSort='hr',lbDir=-1,lbExp=null;
+
+function renderLB(plays){
+  const lb=document.getElementById('lbview');
+  const pm={};
+  // Exclude DNP from leaderboard stats
+  plays.filter(p=>p.result!=='DNP').forEach(p=>{
+    if(!pm[p.player])pm[p.player]={name:p.player,team:p.team||'',pos:p.position||'',plays:0,wins:0,losses:0,deltas:[],props:[]};
+    const m=pm[p.player];m.plays++;
+    if(p.result==='WIN')m.wins++;if(p.result==='LOSS')m.losses++;
+    if(p.delta!=null)m.deltas.push(p.delta);m.props.push(p);if(p.team)m.team=p.team;
+  });
+  let rows=Object.values(pm);
+  rows.forEach(r=>{const g=r.wins+r.losses;r.hr=g?r.wins/g:0;r.graded=g;
+    r.avgDelta=r.deltas.length?r.deltas.reduce((a,b)=>a+b,0)/r.deltas.length:0;
+    r.props.sort((a,b)=>(b.date||'').localeCompare(a.date||''));});
+  rows.sort((a,b)=>lbDir*((b[lbSort]||0)-(a[lbSort]||0)));
+
+  const th=[['player','Player',1],['pos','Pos',0],['plays','Plays',1],['wins','W',0],['hr','HR%',1],['avgDelta','Avg Δ',1]]
+    .map(([k,l,s])=>`<th onclick="${s?`sortLB('${k}')`:'void'}" style="cursor:${s?'pointer':'default'}">${l}${lbSort===k?(lbDir<0?' ↓':' ↑'):''}</th>`).join('');
+
+  const rh=rows.map(r=>{
+    const hrc=r.graded?(r.hr>=.6?'color:var(--green)':r.hr>=.5?'color:var(--amber)':'color:var(--red)'):'';
+    const dc=r.avgDelta>0?'color:var(--green)':'color:var(--red)';
+    const exp=lbExp===r.name;
+    const mf=r.hr>=.6?'var(--green)':r.hr>=.5?'var(--amber)':'var(--red)';
+    return`<tr onclick="toggleDrill('${ea(r.name)}')">
+      <td><div class="lpname">${esc(r.name)}</div><div class="lteam">${r.team}</div></td>
+      <td style="color:var(--text-dim);font-size:11px">${r.pos}</td>
+      <td style="font-family:var(--mono)">${r.plays}</td>
+      <td><span style="color:var(--green);font-family:var(--mono);font-weight:700">${r.wins}</span><span style="color:var(--text-dim)">/${r.losses}</span></td>
+      <td><div style="${hrc};font-family:var(--mono);font-weight:700">${r.graded?Math.round(r.hr*100)+'%':'—'}</div>
+        <div class="mbar"><div class="mbarfill" style="width:${Math.round(r.hr*100)}%;background:${mf}"></div></div></td>
+      <td style="${dc};font-family:var(--mono)">${r.avgDelta!=null?(r.avgDelta>0?'+':'')+r.avgDelta.toFixed(1):'—'}</td>
+    </tr>${exp?mkDrill(r):''}`;
+  }).join('');
+
+  lb.innerHTML=`<table class="lbt"><thead><tr>${th}</tr></thead><tbody>${rh}</tbody></table>`;
+}
+
+function sortLB(c){if(lbSort===c)lbDir*=-1;else{lbSort=c;lbDir=-1;}renderLB(filtered);}
+function toggleDrill(n){lbExp=lbExp===n?null:n;renderLB(filtered);}
+
+function mkDrill(r){
+  const rows=r.props.slice(0,10).map(p=>`<tr>
+    <td>${p.date||''}</td><td>${esc(p.match||'')}</td>
+    <td><span class="dbadge ${dcls(p.dir)}" style="font-size:10px;padding:2px 5px;border-radius:3px">${p.dir||'—'}</span></td>
+    <td style="font-family:var(--mono)">${fl(p.line)}</td>
+    <td style="font-family:var(--mono)">${p.actualPts!=null?p.actualPts:'—'}</td>
+    <td style="font-family:var(--mono);font-weight:700;${p.result==='WIN'?'color:var(--green)':p.result==='LOSS'?'color:var(--red)':'color:var(--text-dim)'}">${p.result||'—'}</td>
+    <td style="font-family:var(--mono);${p.delta>0?'color:var(--green)':p.delta<0?'color:var(--red)':''}">${p.delta!=null?(p.delta>0?'+':'')+p.delta:'—'}</td>
+  </tr>`).join('');
+  const more=r.props.length>10?`<tr><td colspan="7"><span class="valink" onclick="event.stopPropagation();fpByPlayer('${ea(r.name)}')">View all ${r.props.length} props →</span></td></tr>`:'';
+  return`<tr class="drow"><td colspan="6" style="padding:0"><table class="dtbl">
+    <thead><tr><td>Date</td><td>Match</td><td>Dir</td><td>Line</td><td>Actual</td><td>Result</td><td>Δ</td></tr></thead>
+    <tbody>${rows}${more}</tbody></table></td></tr>`;
+}
+function fpByPlayer(p){document.getElementById('fsearch').value=p;setView('plays');applyFilters();}
+
+// ─── STATS ───────────────────────────────────────────────────
+function renderStats(plays){
+  const sv=document.getElementById('stview');
+  // Exclude DNP from all hit rate calculations
+  const graded=plays.filter(p=>p.result==='WIN'||p.result==='LOSS');
+  const wins=graded.filter(p=>p.result==='WIN');
+  function hrs(g,w){if(!g.length)return'—';return Math.round(w.length/g.length*100)+'% ('+g.length+')';}
+  function hrc(g,w){if(!g.length)return'';const r=w.length/g.length;return r>=.6?'g':r>=.5?'a':'';}
+  const trows=['T1_ULTRA','T1_PREMIUM','T1','T2','T3','T3_LEAN'].map(t=>{
+    const tg=graded.filter(p=>p.tierLabel===t),tw=tg.filter(p=>p.result==='WIN');
+    return`<div class="srow"><span class="slabel">${t}</span><span class="sval ${hrc(tg,tw)}">${hrs(tg,tw)}</span></div>`;}).join('');
+  const drows=['OVER','UNDER','LEAN OVER','LEAN UNDER'].map(d=>{
+    const dg=graded.filter(p=>p.dir===d),dw=dg.filter(p=>p.result==='WIN');
+    return`<div class="srow"><span class="slabel">${d}</span><span class="sval ${hrc(dg,dw)}">${hrs(dg,dw)}</span></div>`;}).join('');
+  const prows=['Guard','Forward','Center'].map(pos=>{
+    const pg=graded.filter(p=>p.position===pos),pw=pg.filter(p=>p.result==='WIN');
+    return`<div class="srow"><span class="slabel">${pos}</span><span class="sval ${hrc(pg,pw)}">${hrs(pg,pw)}</span></div>`;}).join('');
+  const months={};graded.forEach(p=>{const m=(p.date||'').slice(0,7);if(!months[m])months[m]={g:[],w:[]};months[m].g.push(p);if(p.result==='WIN')months[m].w.push(p);});
+  const mrows=Object.entries(months).sort((a,b)=>b[0].localeCompare(a[0])).slice(0,8).map(([m,d])=>
+    `<div class="srow"><span class="slabel">${m}</span><span class="sval ${hrc(d.g,d.w)}">${hrs(d.g,d.w)}</span></div>`).join('');
+  const lt={};graded.filter(p=>p.result==='LOSS'&&p.lossType).forEach(p=>{lt[p.lossType]=(lt[p.lossType]||0)+1;});
+  const ltrows=Object.entries(lt).sort((a,b)=>b[1]-a[1]).map(([t,c])=>
+    `<div class="srow"><span class="slabel">${t}</span><span class="sval">${c}</span></div>`).join('');
+  const ad=graded.map(p=>p.delta||0);
+  const avg=ad.length?(ad.reduce((a,b)=>a+b,0)/ad.length).toFixed(2):'—';
+  const dnpc=plays.filter(p=>p.result==='DNP').length;
+
+  sv.innerHTML=`<div class="sgrid">
+    <div class="scard"><div class="sctitle">Overview</div>
+      <div class="srow"><span class="slabel">Plays shown</span><span class="sval">${plays.length}</span></div>
+      <div class="srow"><span class="slabel">Graded (excl. DNP)</span><span class="sval">${graded.length}</span></div>
+      <div class="srow"><span class="slabel">Hit rate</span><span class="sval ${hrc(graded,wins)}">${hrs(graded,wins)}</span></div>
+      <div class="srow"><span class="slabel">Wins / Losses</span><span class="sval">${wins.length} / ${graded.length-wins.length}</span></div>
+      <div class="srow"><span class="slabel">Avg delta</span><span class="sval ${parseFloat(avg)>0?'g':''}">${typeof avg==='string'?avg:(avg>0?'+':'')+avg}</span></div>
+      <div class="srow"><span class="slabel">DNP</span><span class="sval">${dnpc}</span></div>
+    </div>
+    <div class="scard"><div class="sctitle">By Tier</div>${trows}</div>
+    <div class="scard"><div class="sctitle">By Direction</div>${drows}</div>
+    <div class="scard"><div class="sctitle">By Position</div>${prows}</div>
+    <div class="scard"><div class="sctitle">Monthly Breakdown</div>${mrows||'<div class="srow"><span class="slabel" style="color:var(--text-dim)">No graded plays</span></div>'}</div>
+    ${ltrows?`<div class="scard"><div class="sctitle">Loss Classifications</div>${ltrows}</div>`:''}
+  </div>`;
+}
+
+// ─── BOOT ────────────────────────────────────────────────────
+window.addEventListener('scroll',()=>document.getElementById('stbtn').classList.toggle('show',window.scrollY>400));
+init();
+</script>
+</body>
+</html>
