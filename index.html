@@ -287,40 +287,71 @@ function computeSeasonStats() {
 // ─── SPARKLINE ───
 // recent array: index 0 = oldest, last = most recent
 // Chart: LEFT = oldest, RIGHT = most recent (natural timeline)
-function spark(d, ln, homes, w = 160, h = 72) {
+function spark(d, ln, homes, w = 160, h = 56) {
   if (!d || d.length < 2) return '';
-  // L20 window — take last 20 scores
   const ds = d.slice(-20);
   const hs = homes ? homes.slice(-20) : [];
-  const pad = 6, labH = 14;
-  const ch = h - labH;  // chart area height (leave bottom for score labels)
-  const mn = Math.min(...ds, ln) - 2, mx = Math.max(...ds, ln) + 2, rn = mx - mn || 1;
-  const x = i => pad + (i / Math.max(ds.length - 1, 1)) * (w - pad * 2);
-  const y = v => pad + (1 - (v - mn) / rn) * (ch - pad * 2);
+  const n  = ds.length;
+  const pad = 8, top = 6, bot = 6;
+  const cw = w - pad * 2, ch = h - top - bot;
+  const mn = Math.min(...ds, ln) - 1.5, mx = Math.max(...ds, ln) + 1.5, rn = mx - mn || 1;
+  const x  = i => pad + (n < 2 ? cw / 2 : (i / (n - 1)) * cw);
+  const y  = v => top + (1 - (v - mn) / rn) * ch;
   const ly = y(ln);
-  const svgParts = [];
-  // Line zone fills
-  svgParts.push(`<rect x="${pad}" y="${pad}" width="${w-pad*2}" height="${Math.max(0,ly-pad)}" fill="rgba(34,197,94,.06)"/>`);
-  svgParts.push(`<rect x="${pad}" y="${ly}" width="${w-pad*2}" height="${Math.max(0,ch-ly)}" fill="rgba(239,68,68,.06)"/>`);
-  // Prop line
-  svgParts.push(`<line x1="${pad}" y1="${ly}" x2="${w-pad}" y2="${ly}" stroke="#6366f1" stroke-width="1.5" stroke-dasharray="4,3" opacity=".8"/>`);
-  svgParts.push(`<text x="${w-pad-1}" y="${ly-3}" font-size="7" fill="#6366f1" text-anchor="end" opacity=".9">${ln}</text>`);
-  // Connecting line
-  const pts = ds.map((v,i) => x(i)+','+y(v)).join(' ');
-  svgParts.push(`<polyline points="${pts}" fill="none" stroke="rgba(148,163,184,.4)" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round"/>`);
-  // Dots with glow + score labels below
+  const p  = [];
+
+  // ── single shared filter def (no random IDs) ──
+  p.push('<defs>'
+    + '<filter id="spglow" x="-50%" y="-50%" width="200%" height="200%">'
+    + '<feGaussianBlur stdDeviation="2.5" result="b"/>'
+    + '<feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>'
+    + '</filter>'
+    + '</defs>');
+
+  // ── gradient area fill under the line ──
+  const hitAbove = ds.filter(v => v > ln).length;
+  const majority = hitAbove >= n / 2 ? 'up' : 'down';
+  const areaCol  = majority === 'up' ? '34,197,94' : '239,68,68';
+
+  // Build area path (fill under/above the connecting line)
+  let area = `M${x(0)},${ly}`;
+  ds.forEach((v, i) => { area += ` L${x(i)},${y(v)}`; });
+  area += ` L${x(n-1)},${ly} Z`;
+  p.push(`<path d="${area}" fill="rgba(${areaCol},.09)" stroke="none"/>`);
+
+  // ── prop line ──
+  p.push(`<line x1="${pad}" y1="${ly}" x2="${pad+cw}" y2="${ly}" stroke="#fbbf24" stroke-width="1.5" stroke-dasharray="5,3" opacity=".85"/>`);
+  // line value pill on right
+  p.push(`<rect x="${pad+cw-18}" y="${ly-8}" width="18" height="9" rx="3" fill="#1a1a2e"/>`);
+  p.push(`<text x="${pad+cw-9}" y="${ly-1}" font-size="7" fill="#fbbf24" text-anchor="middle" font-family="JetBrains Mono,monospace" font-weight="700">${ln}</text>`);
+
+  // ── connecting path ──
+  const linePts = ds.map((v,i) => `${x(i)},${y(v)}`).join(' ');
+  p.push(`<polyline points="${linePts}" fill="none" stroke="rgba(226,232,240,.35)" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round"/>`);
+
+  // ── dots ──
   ds.forEach((v, i) => {
-    const cx = x(i), cy = y(v);
-    const hit = v > ln;
-    const fill = hit ? '#22c55e' : '#ef4444';
-    const gid = 'g' + i + Math.random().toString(36).slice(2,5);
-    svgParts.push(`<defs><filter id="${gid}"><feGaussianBlur stdDeviation="2" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs>`);
-    svgParts.push(`<circle cx="${cx}" cy="${cy}" r="4" fill="${fill}" filter="url(#${gid})" opacity=".9"/>`);
-    svgParts.push(`<circle cx="${cx}" cy="${cy}" r="2.5" fill="${fill}"/>`);
-    // Score label
-    svgParts.push(`<text x="${cx}" y="${h-2}" font-size="7" fill="${fill}" text-anchor="middle" font-weight="700">${v}</text>`);
+    const cx = x(i), cy = y(v), hit = v > ln;
+    const isHome = hs[i] === true;
+    const fill   = hit ? '#22c55e' : '#ef4444';
+    const ring   = isHome ? '#38bdf8' : 'transparent';
+    const isMost = i === n - 1;  // most recent = last in array (right side)
+
+    if (isMost) {
+      // Most recent: larger, glowing, with score badge
+      p.push(`<circle cx="${cx}" cy="${cy}" r="6" fill="${fill}" filter="url(#spglow)" opacity=".35"/>`);
+      p.push(`<circle cx="${cx}" cy="${cy}" r="4" fill="${fill}"/>`);
+      // score badge above/below most recent dot
+      const by = cy > h / 2 ? cy - 9 : cy + 13;
+      p.push(`<rect x="${cx-10}" y="${by-7}" width="20" height="9" rx="3" fill="${hit ? 'rgba(34,197,94,.25)' : 'rgba(239,68,68,.25)'}" stroke="${fill}" stroke-width=".5"/>`);
+      p.push(`<text x="${cx}" y="${by}" font-size="7.5" fill="${fill}" text-anchor="middle" font-family="JetBrains Mono,monospace" font-weight="700">${v}</text>`);
+    } else {
+      p.push(`<circle cx="${cx}" cy="${cy}" r="${hit ? 3 : 2.5}" fill="${fill}" opacity="${hit ? .9 : .75}"/>`);
+      if (isHome) p.push(`<circle cx="${cx}" cy="${cy}" r="4.5" fill="none" stroke="#38bdf8" stroke-width="1" opacity=".5"/>`);
+    }
   });
-  return `<svg width="${w}" height="${h}" style="display:block;overflow:visible">${svgParts.join('')}</svg>`;
+
+  return `<svg width="${w}" height="${h}" style="display:block;overflow:visible">${p.join('')}</svg>`;
 }
 
 // ─── MAIN RENDER ───
