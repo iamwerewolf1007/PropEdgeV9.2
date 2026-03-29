@@ -209,6 +209,20 @@ function tierBadge(p) {
   }
 }
 
+// Full position name map
+const POS_FULL = {
+  'G':'Guard','PG':'Point Guard','SG':'Shooting Guard',
+  'F':'Forward','SF':'Small Forward','PF':'Power Forward',
+  'C':'Center','F-C':'Forward-Center','C-F':'Center-Forward',
+  'G-F':'Guard-Forward','F-G':'Forward-Guard',
+  'Guard':'Guard','Forward':'Forward','Center':'Center',
+};
+function posLabel(p) {
+  const pos = p.position || p.posSimple || '';
+  return POS_FULL[pos] || POS_FULL[pos.split('-')[0]] || pos || '';
+}
+
+
 // ─── BASE PATH ───
 const _B = window.location.pathname.replace(/\/index\.html$/, '').replace(/\/$/, '');
 
@@ -287,55 +301,72 @@ function computeSeasonStats() {
 // ─── SPARKLINE ───
 // recent array: index 0 = oldest, last = most recent
 // Chart: LEFT = oldest, RIGHT = most recent (natural timeline)
-function spark(d, ln, homes, w = 280, h = 36) {
-  if (!d || d.length < 2) return '';
-  const ds = d.slice(-20);
-  const hs = homes ? homes.slice(-20) : [];
-  const n  = ds.length;
-  const pad = 6, top = 4, bot = 4;
-  const cw = w - pad * 2, ch = h - top - bot;
-  const mn = Math.min(...ds, ln) - 1, mx = Math.max(...ds, ln) + 1, rn = mx - mn || 1;
-  const x  = i => pad + (n < 2 ? cw / 2 : (i / (n - 1)) * cw);
-  const y  = v => top + (1 - (v - mn) / rn) * ch;
-  const ly = y(ln);
-  const p  = [];
+function spark(d, ln, homes, w, h=40) {
+  if (!d||d.length<2) return '';
+  const W = w || 213;
+  const ds=d.slice(-20), hs=homes?homes.slice(-20):[];
+  const n=ds.length, pad=5, top=4, bot=4;
+  const cw=W-pad*2, ch=h-top-bot;
+  const mn=Math.min(...ds,ln)-1, mx=Math.max(...ds,ln)+1, rn=mx-mn||1;
+  const x=i=>pad+(n<2?cw/2:(i/(n-1))*cw);
+  const y=v=>top+(1-(v-mn)/rn)*ch;
+  const ly=y(ln), p=[];
 
-  // shared glow filter
-  p.push('<defs><filter id="spglow" x="-60%" y="-60%" width="220%" height="220%"><feGaussianBlur stdDeviation="2" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs>');
+  // Teal / Fuchsia theme
+  const HIT='#2dd4bf', MISS='#e879f9';
+  const HITR='45,212,191', MISSR='232,121,249';
+  const LINE='#fbbf24', HOMEC='#60a5fa';
 
-  // area fill between dots and prop line
-  const hitAbove = ds.filter(v => v > ln).length;
-  const areaCol  = hitAbove >= n / 2 ? '34,197,94' : '239,68,68';
-  let area = `M${x(0)},${ly}`;
-  ds.forEach((v, i) => { area += ` L${x(i)},${y(v)}`; });
-  area += ` L${x(n-1)},${ly} Z`;
-  p.push(`<path d="${area}" fill="rgba(${areaCol},.08)" stroke="none"/>`);
+  p.push(`<defs>
+    <filter id="gh" x="-80%" y="-80%" width="260%" height="260%">
+      <feGaussianBlur stdDeviation="3" result="b"/>
+      <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <filter id="gm" x="-80%" y="-80%" width="260%" height="260%">
+      <feGaussianBlur stdDeviation="3" result="b"/>
+      <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <linearGradient id="lg" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="${HIT}" stop-opacity=".12"/>
+      <stop offset="100%" stop-color="${MISS}" stop-opacity=".12"/>
+    </linearGradient>
+  </defs>`);
 
-  // prop line — amber dashed, no label
-  p.push(`<line x1="${pad}" y1="${ly}" x2="${pad+cw}" y2="${ly}" stroke="#fbbf24" stroke-width="1" stroke-dasharray="4,3" opacity=".7"/>`);
+  // subtle background band
+  p.push(`<rect x="${pad}" y="${top}" width="${cw}" height="${ch}" fill="url(#lg)" rx="2"/>`);
 
-  // connecting line
-  const pts = ds.map((v,i) => `${x(i)},${y(v)}`).join(' ');
-  p.push(`<polyline points="${pts}" fill="none" stroke="rgba(226,232,240,.25)" stroke-width="1" stroke-linejoin="round" stroke-linecap="round"/>`);
+  // area fill — teal if majority hit, fuchsia if majority miss
+  const hitN=ds.filter(v=>v>ln).length, majority=hitN>=n/2;
+  const aRGB=majority?HITR:MISSR;
+  let area=`M${x(0)},${ly}`;
+  ds.forEach((v,i)=>{area+=` L${x(i)},${y(v)}`;});
+  area+=` L${x(n-1)},${ly} Z`;
+  p.push(`<path d="${area}" fill="rgba(${aRGB},.13)" stroke="none"/>`);
 
-  // dots only — no numbers anywhere
-  ds.forEach((v, i) => {
-    const cx = x(i), cy = y(v), hit = v > ln;
-    const isHome = hs[i] === true;
-    const fill = hit ? '#22c55e' : '#ef4444';
-    const isMost = i === n - 1;
-    if (isMost) {
-      // most recent: slightly larger + glow, still no number
-      p.push(`<circle cx="${cx}" cy="${cy}" r="5" fill="${fill}" filter="url(#spglow)" opacity=".3"/>`);
-      p.push(`<circle cx="${cx}" cy="${cy}" r="3.5" fill="${fill}"/>`);
+  // prop line — amber dashed
+  p.push(`<line x1="${pad}" y1="${ly}" x2="${pad+cw}" y2="${ly}" stroke="${LINE}" stroke-width="1.2" stroke-dasharray="5,3" opacity=".75"/>`);
+
+  // connecting path
+  const pts=ds.map((v,i)=>`${x(i)},${y(v)}`).join(' ');
+  p.push(`<polyline points="${pts}" fill="none" stroke="rgba(226,232,240,.2)" stroke-width="1.2" stroke-linejoin="round" stroke-linecap="round"/>`);
+
+  // dots
+  ds.forEach((v,i)=>{
+    const cx=x(i), cy=y(v), hit=v>ln;
+    const fill=hit?HIT:MISS, gid=hit?'gh':'gm';
+    const isMost=i===n-1, isHome=hs[i]===true;
+    if(isMost){
+      p.push(`<circle cx="${cx}" cy="${cy}" r="7" fill="${fill}" filter="url(#${gid})" opacity=".18"/>`);
+      p.push(`<circle cx="${cx}" cy="${cy}" r="4.5" fill="${fill}" opacity=".35"/>`);
+      p.push(`<circle cx="${cx}" cy="${cy}" r="3" fill="${fill}"/>`);
     } else {
-      p.push(`<circle cx="${cx}" cy="${cy}" r="2.5" fill="${fill}" opacity="${hit ? .85 : .65}"/>`);
+      p.push(`<circle cx="${cx}" cy="${cy}" r="${hit?2.8:2.2}" fill="${fill}" opacity="${hit?.88:.65}"/>`);
     }
-    // home: thin blue ring, no emoji
-    if (isHome) p.push(`<circle cx="${cx}" cy="${cy}" r="${isMost ? 5.5 : 4}" fill="none" stroke="#38bdf8" stroke-width=".8" opacity=".45"/>`);
+    if(isHome&&!isMost)
+      p.push(`<circle cx="${cx}" cy="${cy}" r="4.2" fill="none" stroke="${HOMEC}" stroke-width=".8" opacity=".38"/>`);
   });
 
-  return `<svg width="${w}" height="${h}" style="display:block;width:100%">${p.join('')}</svg>`;
+  return `<svg width="${W}" height="${h}" style="display:block">${p.join('')}</svg>`;
 }
 
 // ─── MAIN RENDER ───
@@ -646,7 +677,9 @@ function card(p) {
         ${p.avail && p.avail !== 'OK' ? `<span style="font:600 7px var(--M);padding:2px 5px;border-radius:4px;background:var(--rdA);color:var(--rd)">${p.avail}</span>` : ''}
       </div>
       <div style="display:flex;align-items:center;gap:5px;flex-wrap:wrap;margin-top:2px">
-        <span style="font:400 9px var(--S);color:var(--tx2)">${p.match} &middot; ${p.gameTime}${p.posSimple && p.posSimple !== 'nan' && p.posSimple !== 'None' ? ' &middot; ' + p.posSimple : ''}</span>
+        <span style="font:400 9px var(--S);color:var(--tx2)">${p.match} &middot; ${p.gameTime}</span>
+        ${p.team && p.team !== 'undefined' ? `<span style="font:700 8px var(--M);padding:1px 5px;border-radius:4px;background:rgba(56,189,248,.1);color:var(--bl)">${p.team}</span>` : ''}
+        ${posLabel(p) ? `<span style="font:400 8px var(--S);color:var(--tx3)">${posLabel(p)}</span>` : ''}
         <span style="font:400 9px var(--S);color:var(--tx3)">${Math.round(p.conf * 100)}% conf</span>
         ${p.predPts != null ? `<span style="font:500 8px var(--M);padding:1px 5px;border-radius:4px;background:rgba(99,102,241,.1);color:var(--accent)">Model: ${p.predPts.toFixed(1)} pts</span>` : ''}
         ${p.predGap != null ? `<span style="font:500 7px var(--M);color:${p.predGap >= 3 ? 'var(--gr)' : p.predGap >= 1.5 ? 'var(--yl)' : 'var(--tx3)'}">gap: ${p.predGap.toFixed(1)}</span>` : ''}
@@ -683,9 +716,8 @@ function card(p) {
       return '<span style="font:600 8px var(--M);padding:2px 5px;border-radius:4px;background:rgba(148,163,184,.1);color:' + clrLH + '">' + first + '→' + last + ' ' + arrow + '</span>';
     })() : ''}
     <div class="kv"><div class="kv-l">Odds</div><div class="kv-v" style="font-size:11px">${dirOver ? (p.overOdds || '—') : (p.underOdds || '—')}</div></div>
+    <div style="margin-left:auto;flex-shrink:0">${spark(p.recent20 || p.recent10 || p.recent, p.line, p.recent20homes || p.recent10homes)}</div>
   </div>`;
-  // ── Sparkline — full width, no numbers ──
-  h += `<div style="margin-top:6px;border-radius:5px;overflow:hidden">${spark(p.recent20 || p.recent10 || p.recent, p.line, p.recent20homes || p.recent10homes)}</div>`;
 
   // ── Confidence bar ──
   const cfBlocks = 10;
