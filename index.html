@@ -326,14 +326,9 @@ function spark(d, ln, homes, w, h=40) {
       <feGaussianBlur stdDeviation="3" result="b"/>
       <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
     </filter>
-    <linearGradient id="lg" x1="0" y1="0" x2="1" y2="0">
-      <stop offset="0%" stop-color="${HIT}" stop-opacity=".12"/>
-      <stop offset="100%" stop-color="${MISS}" stop-opacity=".12"/>
-    </linearGradient>
   </defs>`);
 
-  // subtle background band
-  p.push(`<rect x="${pad}" y="${top}" width="${cw}" height="${ch}" fill="url(#lg)" rx="2"/>`);
+  // background: transparent — no fill rect
 
   // area fill — teal if majority hit, fuchsia if majority miss
   const hitN=ds.filter(v=>v>ln).length, majority=hitN>=n/2;
@@ -672,13 +667,13 @@ function card(p) {
       <div style="display:flex;align-items:center;gap:4px;flex-wrap:wrap">
         <span style="font:700 8px var(--M);padding:1px 6px;border-radius:6px;background:${dBg};color:${dC}">${dl}</span>
         <span style="font:600 13px var(--S)">${p.player}</span>
+        ${p.team && p.team !== 'undefined' && p.team !== '' ? `<span style="font:700 8px var(--M);padding:1px 5px;border-radius:4px;background:rgba(56,189,248,.1);color:var(--bl)">${p.team}</span>` : ''}
         ${homeIcon} ${_rkBadge} ${tierBadge(p)}
         <span style="font:700 8px var(--M);padding:2px 5px;border-radius:4px;background:rgba(56,189,248,.07);color:${flagC}">${p.flagsStr || '—'}</span>
         ${p.avail && p.avail !== 'OK' ? `<span style="font:600 7px var(--M);padding:2px 5px;border-radius:4px;background:var(--rdA);color:var(--rd)">${p.avail}</span>` : ''}
       </div>
       <div style="display:flex;align-items:center;gap:5px;flex-wrap:wrap;margin-top:2px">
         <span style="font:400 9px var(--S);color:var(--tx2)">${p.match} &middot; ${p.gameTime}</span>
-        ${p.team && p.team !== 'undefined' ? `<span style="font:700 8px var(--M);padding:1px 5px;border-radius:4px;background:rgba(56,189,248,.1);color:var(--bl)">${p.team}</span>` : ''}
         ${posLabel(p) ? `<span style="font:400 8px var(--S);color:var(--tx3)">${posLabel(p)}</span>` : ''}
         <span style="font:400 9px var(--S);color:var(--tx3)">${Math.round(p.conf * 100)}% conf</span>
         ${p.predPts != null ? `<span style="font:500 8px var(--M);padding:1px 5px;border-radius:4px;background:rgba(99,102,241,.1);color:var(--accent)">Model: ${p.predPts.toFixed(1)} pts</span>` : ''}
