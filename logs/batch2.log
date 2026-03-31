@@ -1,0 +1,34 @@
+============================================================
+PropEdge V9.2 — BATCH 2: PREDICT
+  Date: 2026-03-30 | 2026-03-30 18:00 UTC+01:00
+============================================================
+
+  Fetching props for 2026-03-30 (Batch 2)...
+    Credits: 1033 events
+    8 games on 2026-03-30
+    Credits: 1027 
+    ✓ PHI @ MIA: 12 props
+    Credits: 1021 
+    ✓ BOS @ ATL: 13 props
+    Credits: 1018 
+    ✓ CHI @ SAS: 15 props
+    Credits: 1015 
+    ✓ PHX @ MEM: 12 props
+    Credits: 1009 
+    ✓ MIN @ DAL: 15 props
+    Credits: 1003 
+    ✓ CLE @ UTA: 12 props
+    Credits: 997 
+    ✓ DET @ OKC: 12 props
+    Credits: 991 
+    ✓ WAS @ LAL: 12 props
+  Total: 103 props across 8 games
+
+  Running predictions (live rolling, DNP-safe)...
+  101 predictions (96 conviction + 5 leans, 2 skipped)
+    Skips: 2 no_player
+
+  ✓ today.json: 101 plays (8 T1, 15 T2)
+    Added:0 Updated:101 Preserved:0
+  ✓ Daily Excel: 2026-03-30.xlsx
+  ✓ Git push: B2: 2026-03-30 — 101 plays
