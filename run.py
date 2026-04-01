@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 PropEdge V9.2 — Master Runner
-  python3 run.py 0           # Batch 0: grade (6 AM UK)
+  python3 run.py 0           # Batch 0: grade (7:30 AM UK)
   python3 run.py 1           # Batch 1: early lines (8 AM UK)
   python3 run.py 2           # Batch 2: main run (6 PM UK)
   python3 run.py 3           # Batch 3: pre-tip
@@ -108,7 +108,7 @@ fi
 
     # ── Launchd agents ──
     schedules = [
-        ('grade',  'batch0_grade.py',   '',  6,  0),
+        ('grade',  'batch0_grade.py',   '',  7,  30),
         ('batch1', 'batch_predict.py',  '1', 8,  0),
         ('batch2', 'batch_predict.py',  '2', 18, 0),
         ('batch3', 'batch3_dynamic.sh', '',  21, 30),
