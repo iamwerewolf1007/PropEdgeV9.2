@@ -64,3 +64,38 @@ PropEdge V9.2 — BATCH 1: PREDICT
     Added:83 Updated:0 Preserved:0
   ✓ Daily Excel: 2026-03-31.xlsx
   ✓ Git push: B1: 2026-03-31 — 83 plays
+============================================================
+PropEdge V9.2 — BATCH 1: PREDICT
+  Date: 2026-04-01 | 2026-04-01 08:00 UTC+01:00
+============================================================
+
+  Fetching props for 2026-04-01 (Batch 1)...
+    Credits: 20000 events
+    9 games on 2026-04-01
+    Credits: 19997 
+    ✓ ATL @ ORL: 12 props
+    Credits: 19988 
+    ✓ PHI @ WAS: 12 props
+    ✗ Boston Celtics @ Miami Heat: 503 Server Error: Service Unavailable for url: https://api.the-odds-api.com/v4/sports/basketball_nba/events/5f035331e20684a116344413531bab36/odds?apiKey=a77b14b513399a472139e58390aac514&regions=us&markets=player_points%2Cspreads%2Ctotals&oddsFormat=american&dateFormat=iso
+    Credits: 19910 
+    ✓ MIL @ HOU: 11 props
+    Credits: 19907 
+    ✓ NYK @ MEM: 11 props
+    Credits: 19904 
+    ✓ SAC @ TOR: 14 props
+    Credits: 19901 
+    ✓ IND @ CHI: 9 props
+    Credits: 19898 
+    ✓ DEN @ UTA: 12 props
+    Credits: 19895 
+    ✓ SAS @ GSW: 13 props
+  Total: 94 props across 9 games
+
+  Running predictions (live rolling, DNP-safe)...
+  93 predictions (88 conviction + 5 leans, 1 skipped)
+    Skips: 1 no_player
+
+  ✓ today.json: 93 plays (5 T1, 17 T2)
+    Added:93 Updated:0 Preserved:0
+  ✓ Daily Excel: 2026-04-01.xlsx
+  ✓ Git push: B1: 2026-04-01 — 93 plays
