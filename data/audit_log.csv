@@ -230,3 +230,9 @@ ts,batch,event,file,rows_before,rows_after,detail
 2026-04-09 12:15:11,B1,PREDICTIONS,,,,"63 plays, skipped 1"
 2026-04-09 12:15:13,B1,BATCH_SUMMARY,,,,"props_fetched=63, plays_added=63"
 2026-04-09 12:15:13,B1,INTEGRITY_OK,/Users/salman/Documents/GitHub/PropEdgeV9.2/data/today.json,1033,1096,SAVE_TODAY
+2026-04-09 12:15:31,B1,BATCH_COMPLETE,,,,
+2026-04-09 17:43:46,B2,BATCH_START,,,,2026-04-09
+2026-04-09 17:43:51,B2,PROPS_FETCHED,,,,"62 props, 6 games"
+2026-04-09 17:44:10,B2,PREDICTIONS,,,,"62 plays, skipped 0"
+2026-04-09 17:44:11,B2,BATCH_SUMMARY,,,,"props_fetched=62, plays_added=2"
+2026-04-09 17:44:11,B2,INTEGRITY_OK,/Users/salman/Documents/GitHub/PropEdgeV9.2/data/today.json,1096,1098,SAVE_TODAY
